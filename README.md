@@ -2,6 +2,8 @@
 
 Platform arsitektur **Micro Front-End Enterprise** berbasis **Nx Monorepo 24**, **Vite 8**, **React 19**, **Tailwind CSS v4**, dan **@module-federation/vite**.
 
+> 📚 **Pusat Dokumentasi Lengkap**: Silakan kunjungi folder [**`docs/`**](./docs/README.md) untuk membaca panduan arsitektur, cara menjalankan project, pembuatan host baru, sistem autentikasi RBAC, dan pustaka komponen shared.
+
 ---
 
 ## 🏛️ Arsitektur Monorepo
