@@ -1,0 +1,4 @@
+@import "../../../packages/shared/ui/src/styles/globals.css";
+@source "./";
+@source "../../../packages/shared/ui/src";
+

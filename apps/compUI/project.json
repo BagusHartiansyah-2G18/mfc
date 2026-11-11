@@ -1,0 +1,28 @@
+{
+  "name": "compUI",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/compUI/src",
+  "projectType": "application",
+  "tags": ["scope:comp-ui", "type:app"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "vite",
+        "cwd": "apps/compUI"
+      },
+      "readyWhen": {
+        "signal": true
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "command": "vite build",
+        "cwd": "apps/compUI"
+      }
+    }
+  }
+}

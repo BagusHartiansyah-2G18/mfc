@@ -1,0 +1,67 @@
+services:
+  compui:
+    build:
+      context: .
+      dockerfile: apps/compUI/Dockerfile
+    container_name: compui
+    working_dir: /app/apps/compUI
+    env_file:
+      - .env
+    ports:
+      - "${PORT_COMP_UI:-4201}:${PORT_COMP_UI:-4201}"
+    volumes:
+      - .:/app
+      - node_modules-compui:/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      PORT_COMP_UI: "${PORT_COMP_UI:-4201}"
+    command: sh -c "([ -d /app/node_modules/@org/ui ] || npm install --ignore-scripts --no-audit --no-fund --prefix /app) && npx vite --config vite.config.mts --host 0.0.0.0 --port ${PORT_COMP_UI:-4201} --strictPort"
+
+  usermgmt:
+    build:
+      context: .
+      dockerfile: apps/userMgmt/Dockerfile
+    container_name: usermgmt
+    working_dir: /app/apps/userMgmt
+    env_file:
+      - .env
+    ports:
+      - "${PORT_USER_MGMT:-4202}:${PORT_USER_MGMT:-4202}"
+    volumes:
+      - .:/app
+      - node_modules-usermgmt:/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      PORT_USER_MGMT: "${PORT_USER_MGMT:-4202}"
+    command: sh -c "([ -d /app/node_modules/@org/ui ] || npm install --ignore-scripts --no-audit --no-fund --prefix /app) && npx vite --config vite.config.mts --host 0.0.0.0 --port ${PORT_USER_MGMT:-4202} --strictPort"
+
+  portal:
+    build:
+      context: .
+      dockerfile: apps/portal/Dockerfile
+    container_name: portal
+    working_dir: /app/apps/portal
+    env_file:
+      - .env
+    ports:
+      - "${PORT_PORTAL:-4200}:${PORT_PORTAL:-4200}"
+    volumes:
+      - .:/app
+      - node_modules-portal:/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      PORT_PORTAL: "${PORT_PORTAL:-4200}"
+      VITE_COMP_UI_URL: "${VITE_COMP_UI_URL:-http://localhost:4201/remoteEntry.js}"
+      VITE_USER_MGMT_URL: "${VITE_USER_MGMT_URL:-http://localhost:4202/remoteEntry.js}"
+    command: sh -c "([ -d /app/node_modules/@org/ui ] || npm install --ignore-scripts --no-audit --no-fund --prefix /app) && npx vite --config vite.config.mts --host 0.0.0.0 --port ${PORT_PORTAL:-4200} --strictPort"
+    depends_on:
+      - compui
+      - usermgmt
+
+volumes:
+  node_modules-portal:
+  node_modules-compui:
+  node_modules-usermgmt:

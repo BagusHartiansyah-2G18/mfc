@@ -16,6 +16,11 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["@org/source"]
+    "customConditions": ["@org/source"],
+    "paths": {
+      "@org/auth": ["./packages/shared/auth/src/index.ts"],
+      "@org/ui": ["./packages/shared/ui/src/index.ts"],
+      "@org/models": ["./packages/shared/models/src/index.ts"]
+    }
   }
 }

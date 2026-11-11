@@ -1,0 +1,66 @@
+brand: BGS Platform
+shell:
+  sidebar:
+    collapsible: true
+    defaultOpen: true
+menus:
+  - section: Portal & Website
+    items:
+      - id: public-site
+        label: Halaman Publik (Promosi)
+        path: /
+        icon: home
+        order: 5
+        enabled: true
+  - section: Micro Front End (compUI)
+    items:
+      - id: comp-ui
+        label: Component UI Overview
+        path: /compUI
+        icon: puzzle
+        order: 10
+        enabled: true
+      - id: widgets
+        label: UI Widgets Showcase
+        path: /compUI/widgets
+        icon: dashboard
+        order: 15
+        enabled: true
+      - id: forms
+        label: Formulir & Validasi
+        path: /compUI/forms
+        icon: file
+        order: 20
+        enabled: true
+      - id: data
+        label: Tabel Data
+        path: /compUI/data
+        icon: table
+        order: 25
+        enabled: true
+  - section: Access Control & Keamanan (userMgmt)
+    items:
+      - id: user-management
+        label: Manajemen Pengguna
+        path: /user-management
+        icon: users
+        order: 30
+        enabled: true
+      - id: user-roles
+        label: Role & Hak Akses
+        path: /user-management/roles
+        icon: shield
+        order: 35
+        enabled: true
+      - id: user-permissions
+        label: Matriks Permission
+        path: /user-management/permissions
+        icon: settings
+        order: 40
+        enabled: true
+      - id: user-api-logs
+        label: Log API
+        path: /user-management/api-logs
+        icon: code
+        order: 45
+        enabled: true

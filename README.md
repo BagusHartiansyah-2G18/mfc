@@ -1,262 +1,246 @@
-# Nx React Repository
+# BGS Micro Front-End (MFE) Platform
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Platform arsitektur **Micro Front-End Enterprise** berbasis **Nx Monorepo 24**, **Vite 8**, **React 19**, **Tailwind CSS v4**, dan **@module-federation/vite**.
 
-✨ A repository showcasing key [Nx](https://nx.dev) features for React monorepos ✨
-## Finish your Nx platform setup
+---
 
-🚀 [Finish setting up your workspace](https://cloud.nx.app/connect/rYfLwXkllS) to get faster builds with remote caching, distributed task execution, and self-healing CI. [Learn more about Nx Cloud](https://nx.dev/ci/intro/why-nx-cloud).
+## 🏛️ Arsitektur Monorepo
 
-## 📦 Project Overview
+```
+MicroFE/base/
+├── apps/
+│   ├── portal/              # HOST SHELL (Port 4200)
+│   │   ├── src/pages/       # Halaman Publik Promosi Software House & Fallback SPA
+│   │   ├── src/mf.ts        # Dynamic Runtime Module Federation & Provider Registry
+│   │   └── public/          # feature.yml (Konfigurasi Menu Terpusat)
+│   │
+│   ├── compUI/              # REMOTE MFE 1: Component UI Showcase & Docs (Port 4201)
+│   │   ├── src/pages/       # Overview, Forms Showcase, Widgets & Overlays, Data Showcase
+│   │   └── src/bootstrap    # Standalone dev runner dengan DashShell
+│   │
+│   ├── userMgmt/            # REMOTE MFE 2: User, Profile & Access Management / RBAC (Port 4202)
+│   │   ├── src/components/  # UserTab, UserProfileDialog, RoleTab, PermissionMatrixTab
+│   │   ├── src/store/       # Reactive Store + LocalStorage persistence
+│   │   └── src/bootstrap    # Standalone dev runner dengan DashShell
+│   │
+│   └── api/                 # BACKEND REST API (NestJS + Prisma + MySQL) (Port 3000)
+│       ├── prisma/          # Schema Prisma & Migration (users, profiles, roles, permissions)
+│       └── src/             # NestJS Modules: Users, Roles, PrismaService
+│
+├── packages/
+│   └── shared/ui/           # SHARED UI LIBRARY (@org/ui) - Sentralisasi Seluruh Komponen
+│       ├── src/layout/
+│       │   ├── dashx1/      # Dashboard Layout System (DashShell, Header, Sidebar, Footer)
+│       │   ├── publicx1/    # Public Landing Layout System (PublicLayout, Header, Footer, Banner)
+│       │   └── SubNav.tsx   # Sidebar Navigasi Sub-fitur Modular
+│       ├── src/components/ui/
+│       │   ├── input-with-icon.tsx     # Input dengan slot ikon, clearable, loading, & error
+│       │   ├── input-with-btn-popup.tsx# Input terpadu tombol aksi & Popover trigger
+│       │   ├── password-input.tsx      # Password input show/hide, strength meter, masked badge
+│       │   ├── form-field.tsx          # Wrapper form standard (label, error, asterisk, helper)
+│       │   ├── select-field.tsx        # Styled native select box dengan chevron
+│       │   ├── status-badge.tsx        # Status pill badge (active, inactive, suspended, pending)
+│       │   ├── tab-nav.tsx             # Universal segmented / underline / pills tab switcher
+│       │   └── ...                     # Primitif Radix UI (Button, Dialog, Popover, Card, dll.)
+│       └── src/utils/       # cn (tailwind-merge) & cross-MFE Event Bus
+│
+├── .env                     # Konfigurasi Environment Terpusat (ignored di git)
+├── .env.example             # Template Environment Variables
+└── docker-compose.yml       # Orkestrasi Docker Multi-Container Dev Server
+```
 
-This repository demonstrates a production-ready React monorepo with:
+---
 
-- **2 Applications**
+## ⚙️ Konfigurasi Environment (`.env`)
 
-  - `shop` - React e-commerce application with product listings and detail views
-  - `api` - Backend API serving product data
-
-- **7 Libraries**
-
-  - `@org/shop-feature-products` - Product listing feature (React)
-  - `@org/shop-feature-product-detail` - Product detail feature (React)
-  - `@org/shop-data` - Data access layer for shop features
-  - `@org/shop-shared-ui` - Shared UI components
-  - `@org/models` - Shared data models
-  - `@org/api-products` - API product service library
-  - `@org/shared-test-utils` - Shared testing utilities
-
-- **E2E Testing**
-  - `shop-e2e` - Playwright tests for the shop application
-
-## 🚀 Quick Start
+Seluruh konfigurasi port dan remote entry dikelola secara terpusat melalui file `.env`:
 
 ```bash
-# Clone the repository
-git clone <your-fork-url>
-cd <your-repository-name>
+# Server Ports
+PORT_PORTAL=4200
+PORT_COMP_UI=4201
+PORT_USER_MGMT=4202
 
-# Install dependencies
+# Portal Configuration
+VITE_BRAND_NAME="BGS Platform"
+VITE_FEATURE_CONFIG_URL="/feature.yml"
+
+# Remote Micro Frontend URLs (Module Federation)
+VITE_COMP_UI_URL=http://localhost:4201/remoteEntry.js
+VITE_USER_MGMT_URL=http://localhost:4202/remoteEntry.js
+```
+
+---
+
+## 🚀 Panduan Menjalankan Aplikasi
+
+### 1. Prasyarat
+- Node.js 20+ atau Node.js 22
+- NPM 10+
+
+### 2. Instalasi Dependensi
+```bash
 npm install
+```
 
-# Serve the React shop application (this will simultaneously serve the API backend)
-npx nx run @org/shop:serve
+### 3. Menjalankan Server Pengembangan (Dev Mode)
 
-# ...or you can serve the API separately
+Anda dapat menjalankan tiap aplikasi secara mandiri atau bersamaan:
+
+```bash
+# 1. Jalankan Backend REST API NestJS + Prisma + MySQL (Port 3000)
 npx nx run @org/api:serve
 
-# Build all projects
-npx nx run-many -t build
+# 2. Jalankan Host Portal (Port 4200)
+npx nx run portal:serve
 
-# Run tests
-npx nx run-many -t test
+# 3. Jalankan Remote Component UI (Port 4201)
+npx nx run compUI:serve
 
-# Lint all projects
-npx nx run-many -t lint
-
-# Run e2e tests
-npx nx run @org/shop-e2e:e2e
-
-# Run tasks in parallel
-
-npx nx run-many -t lint test build e2e --parallel=3
-
-# Visualize the project graph
-npx nx graph
+# 4. Jalankan Remote User Management (Port 4202)
+npx nx run userMgmt:serve
 ```
 
-## ⭐ Featured Nx Capabilities
+Akses di browser:
+- **Halaman Publik (Promosi Software House)**: `http://localhost:4200/`
+- **Dashboard Component UI**: `http://localhost:4200/compUI` atau `http://localhost:4201/` (Standalone)
+- **User & Access Management (RBAC)**: `http://localhost:4200/user-management` atau `http://localhost:4202/` (Standalone)
+- **Backend REST API**: `http://localhost:3000/api/users` & `http://localhost:3000/api/roles`
+- **phpMyAdmin**: `http://localhost:8080` (User: `root`, Password: `root`)
 
-This repository showcases several powerful Nx features:
+### 4. Menjalankan dengan Docker Compose
+```bash
+docker compose up --build
+```
+Container `portal` (4200), `compui` (4201), dan `usermgmt` (4202) akan aktif dan saling terhubung otomatis.
 
-### 1. 🔒 Module Boundaries
+---
 
-Enforces architectural constraints using tags. Each project has specific dependencies it can use:
+## 🧪 Testing & Verifikasi
 
-- `scope:shared` - Can be used by all projects
-- `scope:shop` - Shop-specific libraries
-- `scope:api` - API-specific libraries
-- `type:feature` - Feature libraries
-- `type:data` - Data access libraries
-- `type:ui` - UI component libraries
-
-**Try it out:**
+Pengujian unit menggunakan **Vitest** dan **React Testing Library**:
 
 ```bash
-# See the current project graph and boundaries
-npx nx graph
+# Jalankan seluruh unit test suite MFE
+npx vitest run apps/userMgmt/src/App.spec.tsx apps/portal/src/App.spec.tsx apps/compUI/src/App.spec.tsx packages/shared/ui/src/layout/layout.spec.tsx
 
-# View a specific project's details
-npx nx show project @org/shop --web
+# Periksa sinkronisasi dependensi & project reference Nx
+npx nx sync:check
 ```
 
-[Learn more about module boundaries →](https://nx.dev/docs/features/enforce-module-boundaries)
+---
 
-### 2. 🎭 Playwright E2E Testing
-
-End-to-end testing with Playwright is pre-configured:
+## 📦 Build untuk Produksi
 
 ```bash
-# Run e2e tests
-npx nx run @org/shop-e2e:e2e
+# Build Remote compUI
+npx nx run compUI:build
 
-# Run e2e tests in CI mode
-npx nx run @org/shop-e2e:e2e-ci
+# Build Remote userMgmt
+npx nx run userMgmt:build
+
+# Build Host portal
+npx nx run portal:build
+
+# Atau build seluruh project sekaligus
+npx nx run-many -t build --projects=compUI,userMgmt,portal
 ```
 
-[Learn more about E2E testing →](https://nx.dev/docs/technologies/test-tools/playwright)
+---
 
-### 3. ⚡ Vitest for Unit Testing
+## 🎨 Sistem Layout Modular (`dashx1` & `publicx1`)
 
-Fast unit testing with Vitest for React libraries:
+Layout dirancang dengan pola **Compound Components** di mana setiap komponen memiliki slot `children?: React.ReactNode` untuk fleksibilitas maksimal:
 
-```bash
-# Test a specific library
-npx nx run @org/shop-data:test
+### A. Dashboard Layout (`dashx1`)
+- `DashShell`: Container dashboard utama dengan drawer mobile otomatis dan slot header/sidebar/footer/breadcrumb.
+- `DashHeader`: Header bar terpadu (`DashHeaderBrand`, `DashHeaderNav`, `DashHeaderNavItem`, `DashHeaderActions`, `DashHeaderUserMenu`, `DashHeaderMobileToggle`).
+- `DashSidebar`: Sidebar navigasi collapsible (`DashSidebarHeader`, `DashSidebarNav`, `DashSidebarSection`, `DashSidebarItem`, `DashSidebarBadge`, `DashSidebarFooter`, `DashSidebarToggle`).
+- `DashFooter`: Footer status sistem (`DashFooterLeft`, `DashFooterRight`, `DashFooterItem`).
+- `DashBreadcrumb`: Navigasi hierarki breadcrumb (`DashBreadcrumbItem`, `DashBreadcrumbSeparator`).
 
-# Test all projects
-npx nx run-many -t test
-```
+### B. Public Layout (`publicx1`)
+- `PublicLayout`: Container landing page dengan slot banner, header, content (`PublicLayoutMain`), dan footer.
+- `PublicHeader`: Sticky navbar dengan toggle tema (dark/light), brand logo, links, dan tombol direct access ke Client Portal.
+- `PublicFooter`: Footer modular 5 kolom (Layanan Utama, Solusi Industri, Ekosistem, Brand Info, Legal).
+- `PublicTopBanner`: Announcement bar promo khusus (`PublicTopBannerBadge`, `PublicTopBannerText`, `PublicTopBannerAction`).
 
-[Learn more about Vite testing →](https://nx.dev/docs/technologies/build-tools/vite)
+---
 
-### 4. 🔧 Self-Healing CI
+## 🧩 Sentralisasi Komponen UI (`@org/ui`)
 
-The CI pipeline includes `nx fix-ci` which automatically identifies and suggests fixes for common issues:
+Semua komponen UI **wajib terpusat** di `@org/ui` (`packages/shared/ui/src/components/ui/` dan `layout/`). Tidak ada komponen UI yang didefinisikan secara ad-hoc di dalam host maupun remote MFE.
 
-```bash
-# In CI, this command provides automated fixes
-npx nx fix-ci
-```
+| Komponen | Path File | Deskripsi & Fitur |
+|---|---|---|
+| `InputWithIcon` | `components/ui/input-with-icon.tsx` | Input dengan slot ikon `left`/`right`, tombol reset/clearable (X), loader putar (async), status validasi error. |
+| `InputWithBtnPopUp` | `components/ui/input-with-btn-popup.tsx` | Input terpadu tombol aksi (`Button`) atau pemicu Popover (`popupContent`) untuk aksi copy, kalkulator, dsb. |
+| `PasswordInput` | `components/ui/password-input.tsx` | Input kata sandi aman: toggle show/hide eye, kalkulator kekuatan (*strength meter* 0-100%), atau mode masked badge (`••••••••`). |
+| `FormField` | `components/ui/form-field.tsx` | Pembungkus field formulir: label, tanda bintang required `*`, helper text, error message, dan slot aksi. |
+| `SelectField` | `components/ui/select-field.tsx` | Dropdown select terstandarisasi dengan ikon chevron, array opsi bertipe (`SelectOption[]`), dan styling seragam. |
+| `StatusBadge` | `components/ui/status-badge.tsx` | Badge indikator status (`active`, `inactive`, `suspended`, `pending`) dilengkapi dot pulsing dinamis. |
+| `TabNav` | `components/ui/tab-nav.tsx` | Pengalih tab universal (`segmented`, `underline`, `pills`) dengan slot ikon dan badge counter. |
+| `SubNav` | `layout/SubNav.tsx` | Sidebar navigasi sekunder modular dan responsif untuk sub-halaman aplikasi. |
+| `DashShell` / `PublicLayout` | `layout/dashx1/` & `layout/publicx1/` | Standarisasi header dan menu yang wajib membungkus setiap host maupun remote MFE standalone. |
 
-This feature helps maintain a healthy CI pipeline by automatically detecting and suggesting solutions for:
+---
 
-- Missing dependencies
-- Incorrect task configurations
-- Cache invalidation issues
-- Common build failures
+## 🛡️ Modul User & Access Management (RBAC)
 
-[Learn more about self-healing CI →](https://nx.dev/docs/features/ci-features/self-healing-ci)
+Modul `apps/userMgmt` mengimplementasikan sistem manajemen identitas dan hak akses standar korporasi:
+1. **Keamanan Kredensial User**:
+   - Password **HARUS HIDDEN** (`••••••••` terenkripsi, tidak pernah diekspos dalam list/table).
+   - Input password dilengkapi tombol toggle *Show/Hide*, pengukur kekuatan password (*Password Strength Meter*), dan konfirmasi password.
+   - Proteksi akun Super Administrator utama (*anti-lockout*).
+2. **User Profile & Informasi Tambahan**:
+   - Setiap akun user memiliki dialog detail **User Profile** (Informasi Tambahan Akun).
+   - Menyimpan data nomor handphone/WhatsApp, alamat lengkap, jenis kelamin (Laki-laki / Perempuan / Lainnya), tanggal lahir, dan bio deskripsi singkat.
+   - Sinkronisasi instan ke state management & MySQL backend.
+3. **Role Management**:
+   - Pengelompokan peran sistem (*System Role*) dan peran kustom (*Custom Role*).
+   - Pelacakan jumlah user aktif per role.
+4. **Matriks Permission Granular**:
+   - Matriks dua dimensi: **Modul** (`users`, `roles`, `projects`, `billing`, `audit_logs`, `settings`) &times; **Hak Akses** (`View`, `Create`, `Edit`, `Delete`).
+   - Toggle **"Pilih Semua" (Select All)** per baris modul dan per kolom aksi.
+   - Shortcut preset: *Full Access*, *Read Only*, dan *Kosongkan*.
 
-## 📁 Project Structure
+---
 
-```
-├── apps/
-│   ├── shop/           [scope:shop]    - React e-commerce app
-│   ├── shop-e2e/                       - E2E tests for shop
-│   └── api/            [scope:api]     - Backend API
-├── packages/
-│   ├── shop/
-│   │   ├── feature-products/        [scope:shop,type:feature] - Product listing
-│   │   ├── feature-product-detail/  [scope:shop,type:feature] - Product details
-│   │   ├── data/                    [scope:shop,type:data]    - Data access
-│   │   └── shared-ui/               [scope:shop,type:ui]      - UI components
-│   ├── api/
-│   │   └── products/    [scope:api]    - Product service
-│   └── shared/
-│       ├── models/      [scope:shared,type:data] - Shared models
-│       └── test-utils/  [scope:shared]           - Testing utilities
-├── nx.json             - Nx configuration
-├── tsconfig.json       - TypeScript configuration
-└── eslint.config.mjs   - ESLint with module boundary rules
-```
+## 🖼️ Showcase Komponen di `compUI` (`apps/compUI`)
 
-## 🏷️ Understanding Tags
+Aplikasi `compUI` berfungsi sebagai live catalog dan dokumentasi interaktif seluruh komponen `@org/ui`:
+- **Overview Page (`/`)**: Value cards arsitektur terpusat, status badge matrix, dan tabel preview status.
+- **Forms Showcase (`/forms`)**: Playground interaktif `InputWithIcon`, `InputWithBtnPopUp`, `PasswordInput` (toggle & masked), `SelectField`, dan live form simulator.
+- **Widgets & Overlays (`/widgets`)**: Showcase varian `TabNav` (segmented, underline, pills), dialog modal, popover, tooltip, sheet drawer, collapsible, dan scroll area.
+- **Data Showcase (`/data`)**: Integrasi tabel dinamis dengan search bar berikon, filter status dropdown, dan kolom password ter-masking aman.
 
-This repository uses tags to enforce module boundaries:
+---
 
-| Project                 | Tags                         | Can Import From              |
-| ----------------------- | ---------------------------- | ---------------------------- |
-| `shop`                  | `scope:shop`                 | `scope:shop`, `scope:shared` |
-| `api`                   | `scope:api`                  | `scope:api`, `scope:shared`  |
-| `shop-feature-products` | `scope:shop`, `type:feature` | `scope:shop`, `scope:shared` |
-| `shop-data`             | `scope:shop`, `type:data`    | `scope:shared`               |
-| `models`                | `scope:shared`, `type:data`  | Nothing (base library)       |
+## ➕ Panduan Menambahkan Remote MFE Baru
 
-## 📚 Useful Commands
+Untuk menambahkan aplikasi Micro Front-End baru ke ekosistem monorepo:
 
-```bash
-# Project exploration
-npx nx graph                                    # Interactive dependency graph
-npx nx list                                     # List installed plugins
-npx nx show project @org/shop --web                 # View project details
-
-# Development
-npx nx run @org/shop:serve                              # Serve React app
-npx nx run @org/api:serve                               # Serve backend API
-npx nx run @org/shop:build                              # Build React app
-npx nx run @org/shop-data:test                          # Test a specific library
-npx nx run @org/shop-feature-products:lint              # Lint a specific library
-
-# Running multiple tasks
-npx nx run-many -t build                       # Build all projects
-npx nx run-many -t test --parallel=3          # Test in parallel
-npx nx run-many -t lint test build            # Run multiple targets
-
-# Affected commands (great for CI)
-npx nx affected -t build                       # Build only affected projects
-npx nx affected -t test                        # Test only affected projects
-```
-
-## 🎯 Adding New Features
-
-### Generate a new React application:
-
-```bash
-npx nx g @nx/react:app my-app
-```
-
-### Generate a new React library:
-
-```bash
-npx nx g @nx/react:lib my-lib
-```
-
-### Generate a new React component:
-
-```bash
-npx nx g @nx/react:component my-component --project=my-lib
-```
-
-### Generate a new API library:
-
-```bash
-npx nx g @nx/node:lib my-api-lib
-```
-
-You can use `npx nx list` to see all available plugins and `npx nx list <plugin-name>` to see all generators for a specific plugin.
-
-## Nx Cloud
-
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/docs/features/ci-features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/docs/features/ci-features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/docs/features/ci-features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/docs/features/ci-features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/docs/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## 🔗 Learn More
-
-- [Nx Documentation](https://nx.dev/docs)
-- [Crafting Your Workspace Tutorial](https://nx.dev/docs/getting-started/tutorials/crafting-your-workspace)
-- [Module Boundaries](https://nx.dev/docs/features/enforce-module-boundaries)
-- [Playwright Testing](https://nx.dev/docs/technologies/test-tools/playwright)
-- [Vite](https://nx.dev/docs/technologies/build-tools/vite)
-- [Docker Integration](https://nx.dev/docs/guides/nx-release/release-docker-images)
-- [Nx Cloud](https://nx.dev/nx-cloud)
-
-## 💬 Community
-
-Join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [X (Twitter)](https://twitter.com/nxdevtools)
-- [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [YouTube](https://www.youtube.com/@nxdevtools)
-- [Blog](https://nx.dev/blog)
+1. **Buat direktori aplikasi**: `apps/<namaApp>/` dengan `project.json`, `package.json`, `tsconfig.json`, dan `vite.config.mts`.
+2. **Daftarkan Module Federation** di `apps/<namaApp>/vite.config.mts`:
+   ```ts
+   federation({
+     name: '<nama_app>',
+     filename: 'remoteEntry.js',
+     exposes: { './App': './src/App.tsx' },
+     shared: { react: { singleton: true }, 'react-dom': { singleton: true }, 'react-router-dom': { singleton: true } }
+   })
+   ```
+3. **Tambahkan Port & URL di `.env`**:
+   ```bash
+   PORT_<NAMA_APP>=4203
+   VITE_<NAMA_APP>_URL=http://localhost:4203/remoteEntry.js
+   ```
+4. **Daftarkan di `apps/portal/src/mf.ts`**:
+   Tambahkan entry ke array `PROVIDERS`.
+5. **Tambahkan Rute di `apps/portal/src/App.tsx`**:
+   ```tsx
+   const NewApp = lazyProvider('<alias>', 'App');
+   <Route path="/<path>/*" element={<AppShell menu={menu}><ProviderBoundary name="<alias>"><NewApp basePath="/<path>" /></ProviderBoundary></AppShell>} />
+   ```
+6. **Perbarui Menu di `apps/portal/public/feature.yml`**.
+7. **Jalankan `npx nx sync`**.
