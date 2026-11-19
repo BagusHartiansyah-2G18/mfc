@@ -6,6 +6,9 @@ import {
   isDevBypassEnabled,
   setDevBypass,
   hasPermission,
+  hasExpiredSessionFlag,
+  isAdminRole,
+  isCustomerRole,
 } from './auth-store';
 import type { UserSession } from './types';
 
@@ -14,6 +17,19 @@ export interface RouteGuardProps {
   allowedRoles?: string[];
   requiredPermissions?: string[];
   redirectTo?: string;
+}
+
+function matchesAllowedRole(userRole: string | undefined, allowedRoles: string[]): boolean {
+  if (!userRole) return false;
+  const normalizedUserRole = userRole.trim().toLowerCase();
+
+  return allowedRoles.some((allowed) => {
+    const normalizedAllowed = allowed.trim().toLowerCase();
+    if (normalizedAllowed === normalizedUserRole) return true;
+    if (isAdminRole(allowed) && isAdminRole(userRole)) return true;
+    if (isCustomerRole(allowed) && isCustomerRole(userRole)) return true;
+    return false;
+  });
 }
 
 export function RouteGuard({
@@ -28,10 +44,11 @@ export function RouteGuard({
   const [showDevPill, setShowDevPill] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = authStore.subscribe((newSess) => {
+    const syncState = (newSess: UserSession | null) => {
       setSession(newSess);
       setIsBypass(isDevBypassEnabled());
-    });
+    };
+    const unsubscribe = authStore.subscribe(syncState);
     return () => unsubscribe();
   }, []);
 
@@ -40,24 +57,25 @@ export function RouteGuard({
   // 1. Jika pengguna belum terotentikasi dan Dev Bypass tidak aktif
   if (!authenticated) {
     const returnUrl = encodeURIComponent(location.pathname + location.search);
+    const reason = hasExpiredSessionFlag() ? 'session_expired' : 'auth_required';
     return (
       <Navigate
-        to={`${redirectTo}?redirect=${returnUrl}&reason=session_expired`}
+        to={`${redirectTo}?redirect=${returnUrl}&reason=${reason}`}
         replace
       />
     );
   }
 
-  // 2. Jika ada pembatasan hak akses berbasis peran (RBAC)
-  if (allowedRoles && allowedRoles.length > 0 && session) {
-    const hasRole = allowedRoles.includes(session.role) || isBypass;
+  // 2. Jika ada pembatasan hak akses berbasis peran (RBAC) - dilewati bila dev bypass aktif
+  if (allowedRoles && allowedRoles.length > 0 && !isBypass) {
+    const hasRole = matchesAllowedRole(session?.role, allowedRoles);
     if (!hasRole) {
       return <Navigate to="/access-denied" replace />;
     }
   }
 
-  // 3. Jika ada pembatasan hak akses berbasis permission granular
-  if (requiredPermissions && requiredPermissions.length > 0 && session && !isBypass) {
+  // 3. Jika ada pembatasan hak akses berbasis permission granular - dilewati bila dev bypass aktif
+  if (requiredPermissions && requiredPermissions.length > 0 && !isBypass) {
     const hasAllPermissions = requiredPermissions.every((p) => hasPermission(p));
     if (!hasAllPermissions) {
       return <Navigate to="/access-denied" replace />;

@@ -50,7 +50,7 @@ export function CustomerPortalPage() {
             onClick={handleLogout}
             className="text-xs border-slate-800 text-slate-300 hover:bg-slate-900 cursor-pointer"
           >
-            <Link to="/login">
+            <Link to="/login?reason=logged_out">
               <LogOut className="h-3.5 w-3.5 mr-1.5" />
               Keluar (Logout)
             </Link>

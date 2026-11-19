@@ -214,11 +214,12 @@ export interface DashHeaderProps extends React.HTMLAttributes<HTMLElement> {
   onToggleSidebar?: () => void
   collapsed?: boolean
   user?: { name?: string; role?: string; avatarFallback?: string }
+  onLogout?: () => void
   children?: React.ReactNode
 }
 
 export const DashHeader = React.forwardRef<HTMLElement, DashHeaderProps>(
-  ({ brand = "Dashboard", menu, onMenuClick, onToggleSidebar, collapsed, user, className, children, ...props }, ref) => {
+  ({ brand = "Dashboard", menu, onMenuClick, onToggleSidebar, collapsed, user, onLogout, className, children, ...props }, ref) => {
     const [mobileOpen, setMobileOpen] = React.useState(false)
     const { resolvedTheme, toggle } = useTheme()
 
@@ -272,7 +273,7 @@ export const DashHeader = React.forwardRef<HTMLElement, DashHeaderProps>(
                 {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
 
-              <DashHeaderUserMenu user={user} />
+              <DashHeaderUserMenu user={user} onLogout={onLogout} />
 
               <DashHeaderMobileToggle
                 isOpen={mobileOpen}

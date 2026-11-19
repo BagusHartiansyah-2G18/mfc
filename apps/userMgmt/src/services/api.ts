@@ -1,3 +1,4 @@
+import { authStore, generateRequestId } from '@org/auth';
 import type {
   User,
   Role,
@@ -8,7 +9,7 @@ const API_BASE =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
   (typeof window !== 'undefined' &&
     (window as unknown as { __ENV__?: { VITE_API_URL?: string } }).__ENV__?.VITE_API_URL) ||
-  'http://localhost:3000/api';
+  'http://localhost:3001/api';
 
 export class ApiError extends Error {
   constructor(
@@ -44,9 +45,14 @@ export interface UserQueryParams {
 }
 
 function getAuthHeaders(): Record<string, string> {
-  if (typeof window === 'undefined' || !window.localStorage) return {};
-  const token = window.localStorage.getItem('bgs_auth_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const token = authStore.getToken();
+  const headers: Record<string, string> = {
+    'X-Request-ID': generateRequestId(),
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 export const userMgmtApi = {

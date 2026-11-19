@@ -12,11 +12,11 @@ export interface NavLinkItem {
 }
 
 export const DEFAULT_PUBLIC_NAV_LINKS: NavLinkItem[] = [
+  { label: "Promo Khusus", href: "#promo" }, 
   { label: "Layanan", href: "#services" },
-  { label: "Promo Khusus", href: "#promo" },
-  { label: "Portofolio", href: "#portfolio" },
+  // { label: "Portofolio", href: "#portfolio" },
   { label: "Alur Kerja", href: "#process" },
-  { label: "Paket Solusi", href: "#pricing" },
+  // { label: "Paket Solusi", href: "#pricing" },
   { label: "Hubungi Kami", href: "#contact" },
 ]
 
@@ -39,13 +39,20 @@ export const PublicHeaderBrand = React.forwardRef<HTMLDivElement, PublicHeaderBr
           children
         ) : (
           <Link to={href} className="group flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black tracking-tight shadow-md transition-transform group-hover:scale-105">
+            {/* <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black tracking-tight shadow-md transition-transform group-hover:scale-105">
               {icon ? icon : <Code2 className="h-5 w-5" />}
+            </div> */}
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl text-white font-black text-xl shadow-lg shadow-blue-500/25 ring-2 ring-blue-400/30 transition-transform group-hover:scale-105">
+              {icon ? icon : <Code2 className="h-5 w-5" />}  
             </div>
-            <div>
-              <div className="font-bold text-lg tracking-tight text-foreground leading-none">{name}</div>
+            <div className="pr-4">
+              <div className="flex justify-between font-bold text-lg text-foreground leading-none">
+                {name.split("").map((char, index) => (
+                  <span key={index}>{char}</span>
+                ))}
+            </div>
               {tagline && (
-                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest mt-0.5">
+                <div className="text-[10px] text-justify text-muted-foreground font-medium uppercase tracking-widest mt-0.5">
                   {tagline}
                 </div>
               )}
@@ -159,17 +166,19 @@ export interface PublicHeaderProps extends React.HTMLAttributes<HTMLElement> {
   dashboardPath?: string
   actions?: React.ReactNode
   children?: React.ReactNode
+  icon?: React.ReactNode
 }
 
 export const PublicHeader = React.forwardRef<HTMLElement, PublicHeaderProps>(
   (
     {
-      brand = "BGS Digital Labs",
-      tagline = "Software House & Tech Partner",
+      brand = "Building Software, Empowering Business",
+      tagline = "M Software Center",
       links = DEFAULT_PUBLIC_NAV_LINKS,
-      dashboardPath = "/compUI",
+      dashboardPath = "/compUI", 
       actions,
       children,
+      icon,
       className,
       ...props
     },
@@ -193,7 +202,7 @@ export const PublicHeader = React.forwardRef<HTMLElement, PublicHeaderProps>(
           <>
             <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
               {/* Brand Section */}
-              <PublicHeaderBrand name={brand} tagline={tagline} />
+              <PublicHeaderBrand name={brand} tagline={tagline} icon={icon} />
 
               {/* Navigation Items */}
               <PublicHeaderNav>
@@ -225,17 +234,11 @@ export const PublicHeader = React.forwardRef<HTMLElement, PublicHeaderProps>(
                         <PhoneCall className="h-3.5 w-3.5" />
                         <span>Konsultasi Proyek</span>
                       </a>
-                    </Button>
-
-                    <Button asChild variant="ghost" size="sm" className="text-xs font-semibold">
-                      <Link to="/login">
-                        <span>Masuk</span>
-                      </Link>
-                    </Button>
-
+                    </Button> 
+                    
                     <Button asChild size="sm" className="gap-1.5 shadow-sm font-semibold">
                       <Link to={dashboardPath}>
-                        <span>Client Portal</span>
+                        <span>Masuk</span>
                         <ArrowRight className="h-4 w-4" />
                       </Link>
                     </Button>

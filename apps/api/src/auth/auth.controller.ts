@@ -7,7 +7,7 @@ import {
   Headers,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto, LogoutDto } from './dto/auth.dto';
 
@@ -15,11 +15,21 @@ import { LoginDto, LogoutDto } from './dto/auth.dto';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('health')
+  health() {
+    return {
+      success: true,
+      status: 'ok',
+      service: 'auth',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     const ip =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.socket.remoteAddress ||
+      req.socket?.remoteAddress ||
       '127.0.0.1';
     const userAgent = req.headers['user-agent'] || 'Unknown';
 
@@ -35,7 +45,7 @@ export class AuthController {
   async logout(@Body() dto: LogoutDto, @Req() req: Request) {
     const ip =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.socket.remoteAddress ||
+      req.socket?.remoteAddress ||
       '127.0.0.1';
 
     return await this.authService.logout(dto?.userId, ip);

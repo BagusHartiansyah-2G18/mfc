@@ -61,13 +61,13 @@ export function SoftwareHouseLanding() {
             <div className="space-y-2 max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-bold uppercase tracking-wider backdrop-blur-xs">
                 <Flame className="h-4 w-4 text-amber-300 fill-amber-300" />
-                <span>PENAWARAN TERBATAS BULAN INI</span>
+                <span>Building Software, Empowering Business</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                Diskon 25% Jasa Pengembangan Software + Gratis Audit & Blueprint MVP
+                Jasa Pengembangan Software + Gratis Audit & Blueprint MVP
               </h2>
               <p className="text-sm text-blue-100 leading-relaxed">
-                Ingin bangun aplikasi web, mobile, atau modernisasi sistem perusahaan? Konsultasikan ide Anda bersama Principal Software Architect kami. Gratis arsitektur blueprint senilai Rp 15.000.000 untuk 5 pendaftar pertama!
+                Ingin bangun aplikasi web, mobile, atau modernisasi sistem perusahaan? Konsultasikan ide Anda bersama Principal Software Architect kami!
               </p>
             </div>
             <div className="flex shrink-0 flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
@@ -94,9 +94,9 @@ export function SoftwareHouseLanding() {
         </div>
 
         <div className="mx-auto max-w-4xl space-y-5">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-foreground leading-[1.12]">
+          <h4 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-foreground leading-[1.12]">
             Bangun Software Kualitas Tinggi yang Mendorong Pertumbuhan Bisnis Anda
-          </h1>
+          </h4>
           <p className="mx-auto max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
             Kami adalah <strong>Software Development Agency & Tech Partner</strong> yang merancang dan membangun sistem digital siap skala: Aplikasi Web Modern, Mobile App iOS & Android, Arsitektur Micro Front End, dan Integrasi Cloud.
           </p>
@@ -159,6 +159,7 @@ export function SoftwareHouseLanding() {
       {/* ========================================================================= */}
       {/* 3. LAYANAN PENGEMBANGAN SOFTWARE (SERVICES)                               */}
       {/* ========================================================================= */}
+      {/* Services Section */}
       <section id="services" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3">
           <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">
@@ -467,7 +468,7 @@ export function SoftwareHouseLanding() {
       {/* ========================================================================= */}
       {/* 7. PAKET SOLUSI & ESTIMASI (PRICING TIERS)                                */}
       {/* ========================================================================= */}
-      <section id="pricing" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
+      {/* <section id="pricing" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-3">
           <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">
             Pilihan Paket Fleksibel
@@ -481,7 +482,7 @@ export function SoftwareHouseLanding() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Tier 1 */}
+          Tier 1
           <Card className="flex flex-col justify-between border-muted hover:border-primary/40 transition-all">
             <CardHeader className="space-y-3">
               <Badge variant="outline" className="w-fit">Startup & MVP</Badge>
@@ -505,7 +506,7 @@ export function SoftwareHouseLanding() {
             </CardContent>
           </Card>
 
-          {/* Tier 2 - POPULAR */}
+          Tier 2 - POPULAR
           <Card className="flex flex-col justify-between border-primary shadow-xl relative scale-105 z-10 bg-card">
             <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
               <Badge className="bg-primary text-primary-foreground font-bold shadow-md">PALING POPULER</Badge>
@@ -532,7 +533,7 @@ export function SoftwareHouseLanding() {
             </CardContent>
           </Card>
 
-          {/* Tier 3 */}
+          Tier 3
           <Card className="flex flex-col justify-between border-muted hover:border-primary/40 transition-all">
             <CardHeader className="space-y-3">
               <Badge variant="outline" className="w-fit">Korporat</Badge>
@@ -556,7 +557,7 @@ export function SoftwareHouseLanding() {
             </CardContent>
           </Card>
         </div>
-      </section>
+      </section> */}
 
       {/* ========================================================================= */}
       {/* 8. FORMULIR KONSULTASI & ESTIMASI PROYEK (CONTACT SECTION)                */}

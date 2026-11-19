@@ -1,30 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { authStore } from './auth-store';
 import { hasUserPermission, canUser } from './use-permission';
 import { Can } from './can';
 import { authFetch } from './auth-client';
-import type { UserProfile } from './types';
+import type { UserSession } from './types';
 
 describe('@org/auth - Centralized Auth & Authorization', () => {
-  const mockStaffUser: UserProfile = {
+  const mockStaffUser: Omit<UserSession, 'expiresAt'> = {
     id: 'usr-staff-1',
     username: 'staff_user',
     name: 'Staff User',
     email: 'staff@mfc.id',
     role: 'Staff',
+    token: 'mock-jwt-token',
     permissions: ['users:view', 'users:create'],
   };
+
+  const origMetaEnv = { ...(import.meta.env as any) };
 
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
     // Nonaktifkan dev bypass default di unit test agar bisa menguji status unauthenticated & RBAC
-    localStorage.setItem('mfc_dev_userbypass', 'false');
+    authStore.setDevBypass(false);
   });
 
-  describe('authStore', () => {
+  afterEach(() => {
+    (import.meta.env as any).VITE_USER_BYPASS = origMetaEnv.VITE_USER_BYPASS;
+    (import.meta.env as any).userbypass = origMetaEnv.userbypass;
+  });
+
+  describe('authStore & .env userbypass sync', () => {
     it('initializes logged out when storage is empty and bypass is false', () => {
       authStore.logout();
       expect(authStore.isAuthenticated()).toBe(false);
@@ -43,12 +51,53 @@ describe('@org/auth - Centralized Auth & Authorization', () => {
       expect(authStore.getUser()).toBeNull();
     });
 
-    it('supports dev bypass mode when userbypass=true', () => {
-      localStorage.setItem('mfc_dev_userbypass', 'true');
+    it('supports dev bypass mode when setDevBypass(true)', () => {
+      authStore.setDevBypass(true);
 
       expect(authStore.isDevBypass()).toBe(true);
       expect(authStore.isAuthenticated()).toBe(true);
       expect(authStore.getUser()?.role).toBe('Administrator');
+    });
+
+    it('clears stale false override when .env switches to userbypass=true so bypass is never blocked', () => {
+      // Simulasi kondisi user sebelumnya menekan "Uji Login Asli" saat .env false
+      (import.meta.env as any).VITE_USER_BYPASS = 'false';
+      (import.meta.env as any).userbypass = 'false';
+      authStore.setDevBypass(false);
+      expect(authStore.isDevBypass()).toBe(false);
+
+      // User mengubah .env menjadi userbypass=true (atau VITE_USER_BYPASS=true)
+      (import.meta.env as any).userbypass = 'true';
+      expect(authStore.isDevBypass()).toBe(true);
+      expect(authStore.isAuthenticated()).toBe(true);
+    });
+
+    it('clears stale true override when .env switches to userbypass=false', () => {
+      (import.meta.env as any).VITE_USER_BYPASS = 'true';
+      (import.meta.env as any).userbypass = 'true';
+      authStore.setDevBypass(true);
+      expect(authStore.isDevBypass()).toBe(true);
+
+      // User mengubah .env menjadi false
+      (import.meta.env as any).VITE_USER_BYPASS = 'false';
+      (import.meta.env as any).userbypass = 'false';
+      expect(authStore.isDevBypass()).toBe(false);
+      expect(authStore.isAuthenticated()).toBe(false);
+    });
+
+    it('grants wildcard permissions for Super Administrator role in store', () => {
+      authStore.setSession({
+        id: 'usr-sa-1',
+        username: 'superadmin',
+        name: 'Principal Administrator',
+        email: 'admin@bgs-software.id',
+        role: 'Super Administrator',
+        token: 'sa-token',
+        permissions: [],
+      });
+
+      expect(authStore.hasPermission('billing:delete')).toBe(true);
+      expect(authStore.can('delete', 'users')).toBe(true);
     });
   });
 
@@ -64,7 +113,7 @@ describe('@org/auth - Centralized Auth & Authorization', () => {
     });
 
     it('grants all permissions for Super Administrator role', () => {
-      const superAdmin: UserProfile = {
+      const superAdmin = {
         id: 'usr-sa',
         username: 'sa',
         name: 'Super Admin',
@@ -119,6 +168,23 @@ describe('@org/auth - Centralized Auth & Authorization', () => {
         expect(headers.get('X-Request-ID')).toMatch(/^req-/);
       } finally {
         global.fetch = originalFetch;
+      }
+    });
+
+    it('does not clear session or redirect on 401 when dev bypass is active', async () => {
+      authStore.setDevBypass(true);
+      const clearSpy = vi.spyOn(authStore, 'clearSession');
+      const originalFetch = global.fetch;
+      global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+
+      try {
+        const res = await authFetch('/api/protected');
+        expect(res.status).toBe(401);
+        expect(clearSpy).not.toHaveBeenCalled();
+        expect(authStore.isAuthenticated()).toBe(true);
+      } finally {
+        global.fetch = originalFetch;
+        clearSpy.mockRestore();
       }
     });
   });

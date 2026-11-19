@@ -1,4 +1,11 @@
 import 'reflect-metadata';
+import * as dotenv from 'dotenv';
+import * as path from 'node:path';
+
+// Muat .env dari root monorepo maupun direktori kerja saat ini
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config();
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
@@ -14,12 +21,16 @@ async function bootstrap() {
       'http://localhost:4200',
       'http://localhost:4201',
       'http://localhost:4202',
+      'http://127.0.0.1:4200',
+      'http://127.0.0.1:4201',
+      'http://127.0.0.1:4202',
     ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Accept'],
     credentials: true,
   });
 
-  const port = process.env.PORT_API ? Number(process.env.PORT_API) : 3000;
+  const port = process.env.PORT_API ? Number(process.env.PORT_API) : 3001;
   await app.listen(port);
   console.log(`🚀 NestJS Backend API running on: http://localhost:${port}/api`);
 }

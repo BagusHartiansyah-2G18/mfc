@@ -185,6 +185,30 @@ async function main() {
         bio: 'Perwakilan resmi mitra strategis Acme Corp untuk pemanfaatan platform BGS.',
       },
     },
+    {
+      id: 'usr-5',
+      username: 'inactive.user',
+      name: 'Akun Nonaktif (Pengujian)',
+      email: 'inactive@bgs-software.id',
+      roleId: devRole.id,
+      status: 'inactive',
+      profile: {
+        jobTitle: 'Former Contractor',
+        department: 'Engineering',
+      },
+    },
+    {
+      id: 'usr-6',
+      username: 'locked.user',
+      name: 'Akun Terkunci (Pengujian)',
+      email: 'locked@bgs-software.id',
+      roleId: devRole.id,
+      status: 'suspended',
+      profile: {
+        jobTitle: 'Security Test Account',
+        department: 'QA & Compliance',
+      },
+    },
   ];
 
   for (const u of users) {

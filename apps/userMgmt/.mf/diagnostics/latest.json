@@ -1,10 +1,10 @@
 {
   "latestErrorEvent": {
     "code": "TYPE-001",
-    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"\\\"C:\\\\\\\\Program Files\\\\\\\\nodejs\\\\\\\\node.exe\\\" C:\\\\Users\\\\bhar1609\\\\Downloads\\\\BGS\\\\MicroFE\\\\base\\\\node_modules\\\\typescript\\\\bin\\\\tsc --project C:\\\\Users\\\\bhar1609\\\\Downloads\\\\BGS\\\\MicroFE\\\\base\\\\apps\\\\userMgmt\\\\node_modules\\\\.federation\\\\tsconfig.8c416bf0c71102f6219af7e4e4395f7e.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
+    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"/usr/local/bin/node /app/node_modules/typescript/bin/tsc --project /app/apps/userMgmt/node_modules/.federation/tsconfig.abcc0e771fc312a417a994da9a3ea56f.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
     "args": {
-      "cmd": "\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" C:\\Users\\bhar1609\\Downloads\\BGS\\MicroFE\\base\\node_modules\\typescript\\bin\\tsc --project C:\\Users\\bhar1609\\Downloads\\BGS\\MicroFE\\base\\apps\\userMgmt\\node_modules\\.federation\\tsconfig.8c416bf0c71102f6219af7e4e4395f7e.json"
+      "cmd": "/usr/local/bin/node /app/node_modules/typescript/bin/tsc --project /app/apps/userMgmt/node_modules/.federation/tsconfig.abcc0e771fc312a417a994da9a3ea56f.json"
     },
-    "timestamp": 1794401660835
+    "timestamp": 1795043721674
   }
 }

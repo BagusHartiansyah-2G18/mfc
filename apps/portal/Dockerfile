@@ -11,8 +11,10 @@ COPY apps/api/package.json apps/api/
 COPY apps/compUI/package.json apps/compUI/
 COPY apps/portal/package.json apps/portal/
 COPY apps/shop/package.json apps/shop/
+COPY apps/userMgmt/package.json apps/userMgmt/
 COPY packages/package.json packages/
 COPY packages/api/products/package.json packages/api/products/
+COPY packages/shared/auth/package.json packages/shared/auth/
 COPY packages/shared/models/package.json packages/shared/models/
 COPY packages/shared/test-utils/package.json packages/shared/test-utils/
 COPY packages/shared/ui/package.json packages/shared/ui/

@@ -6,6 +6,7 @@ COPY package.json package-lock.json ./
 COPY apps/compUI/package.json apps/compUI/
 COPY apps/portal/package.json apps/portal/
 COPY apps/userMgmt/package.json apps/userMgmt/
+COPY packages/shared/auth/package.json packages/shared/auth/
 COPY packages/shared/ui/package.json packages/shared/ui/
 
 RUN npm install

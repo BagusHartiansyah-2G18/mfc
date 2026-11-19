@@ -9,6 +9,7 @@ const PORT = Number(process.env.PORT_USER_MGMT) || 4202;
 
 export default defineConfig({
   envDir: path.resolve(import.meta.dirname, '../../'),
+  envPrefix: ['VITE_', 'userbypass'],
   cacheDir: path.resolve(import.meta.dirname, '../../node_modules/.vite/apps/userMgmt'),
   server: {
     port: PORT,
@@ -69,5 +70,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     testTimeout: 15000,
+    setupFiles: [path.resolve(import.meta.dirname, '../../test-setup.ts')],
   },
 });

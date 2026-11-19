@@ -1,4 +1,4 @@
-import { authStore } from './auth-store';
+import { authStore, isDevBypassEnabled } from './auth-store';
 
 /**
  * Generate Distributed Tracing Correlation ID (X-Request-ID)
@@ -50,7 +50,8 @@ export async function authFetch(
   const response = await fetch(input, options);
 
   // 4. Deteksi Session Expired / Token Invalid (401)
-  if (response.status === 401 && !init?.skipAuth) {
+  // Saat dev bypass aktif (userbypass=true), jangan paksa redirect ke /login
+  if (response.status === 401 && !init?.skipAuth && !isDevBypassEnabled()) {
     authStore.clearSession();
     if (typeof window !== 'undefined') {
       const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);

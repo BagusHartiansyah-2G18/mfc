@@ -1,8 +1,12 @@
 import { Component, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Route, Routes, Navigate, Link } from 'react-router-dom';
+import { Route, Routes, Navigate, Link, useNavigate } from 'react-router-dom';
 import {
   AppShell,
   PublicLayout,
+  DashHeader,
+  DashHeaderBrand,
+  DashHeaderActions,
+  DashHeaderUserMenu,
   Skeleton,
   Button,
   Card,
@@ -11,17 +15,18 @@ import {
   CardTitle,
   type FeatureMenu,
 } from '@org/ui';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 import { lazyProvider } from './mf';
 import { loadFeatureMenu } from './config/feature';
 import { SoftwareHouseLanding } from './pages/SoftwareHouseLanding';
-import { LoginPage } from './pages/LoginPage';
+import { LoginPage, getApiBaseUrl } from './pages/LoginPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AccessDeniedPage } from './pages/AccessDeniedPage';
 import { AccountDisabledPage } from './pages/AccountDisabledPage';
 import { CustomerPortalPage } from './pages/CustomerPortalPage';
 import { RouteGuard } from './auth/RouteGuard';
+import { useAuth } from './auth/auth-store';
 
 interface ProviderBoundaryProps {
   children: ReactNode;
@@ -135,6 +140,82 @@ class ProviderBoundary extends Component<
 const CompUIApp = lazyProvider<{ basePath?: string }>('compUI', 'App');
 const UserMgmtApp = lazyProvider<{ basePath?: string }>('userMgmt', 'App');
 
+function PortalHeader({ brand }: { brand: string }) {
+  const navigate = useNavigate();
+  const { session, isDevBypass, logout } = useAuth();
+
+  const initials = (session?.name || 'OP')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  const handleLogout = async () => {
+    try {
+      if (session?.id && !isDevBypass) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2000);
+        await fetch(`${getApiBaseUrl()}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: session.id, userName: session.name }),
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timer));
+      }
+    } catch {
+      // Tetap lanjut membersihkan sesi lokal walau server offline
+    } finally {
+      logout();
+      navigate('/login?reason=logged_out', { replace: true });
+    }
+  };
+
+  return (
+    <div className="px-2 pt-2">
+      <DashHeader className="py-2">
+        <div className="flex items-center justify-between gap-4">
+          <DashHeaderBrand title={brand} href="/compUI" />
+          <DashHeaderActions>
+            {session && (
+              <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground pr-1">
+                <span className="font-semibold text-foreground" data-testid="portal-active-user">
+                  {session.name}
+                </span>
+                <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium bg-muted/60">
+                  {session.role}
+                </span>
+              </div>
+            )}
+            <DashHeaderUserMenu
+              user={{
+                name: session?.name || 'Guest',
+                role: session?.role || 'User',
+                avatarFallback: initials || 'U',
+              }}
+              onLogout={handleLogout}
+            />
+            {!isDevBypass && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                data-testid="portal-logout-btn"
+                className="h-8 text-xs gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:hover:bg-rose-950/40"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Keluar</span>
+              </Button>
+            )}
+          </DashHeaderActions>
+        </div>
+      </DashHeader>
+    </div>
+  );
+}
+
 export function App() {
   const [menu, setMenu] = useState<FeatureMenu | null>(null);
   const brandName = import.meta.env.VITE_BRAND_NAME || 'VITE_BRAND_NAME';
@@ -156,7 +237,9 @@ export function App() {
       <Route
         path="/"
         element={
-          <PublicLayout brand={brandName} dashboardPath="/compUI">
+          <PublicLayout brand={brandName} 
+            dashboardPath="/compUI" 
+            icon={<img src="mfc/android-chrome-192x192.png" alt="MFC Logo" className="h-10 w-10 rounded-full object-cover" />}>
             <SoftwareHouseLanding />
           </PublicLayout>
         }
@@ -171,7 +254,7 @@ export function App() {
       <Route
         path="/customer-portal"
         element={
-          <RouteGuard allowedRoles={['Customer', 'Administrator']}>
+          <RouteGuard allowedRoles={['Customer', 'Client Representative', 'Administrator', 'Super Administrator']}>
             <CustomerPortalPage />
           </RouteGuard>
         }
@@ -183,7 +266,7 @@ export function App() {
         element={
           <RouteGuard>
             {menu ? (
-              <AppShell menu={menu}>
+              <AppShell menu={menu} header={<PortalHeader brand={brandName} />}>
                 <ProviderBoundary name="compUI">
                   <CompUIApp basePath="/compUI" />
                 </ProviderBoundary>
@@ -207,7 +290,7 @@ export function App() {
         element={
           <RouteGuard>
             {menu ? (
-              <AppShell menu={menu} hoverOpen={true}>
+              <AppShell menu={menu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
                 <ProviderBoundary name="userMgmt">
                   <UserMgmtApp basePath="/user-management" />
                 </ProviderBoundary>

@@ -9,6 +9,7 @@ const PORT = Number(process.env.PORT_COMP_UI) || 4201;
 
 export default defineConfig({
   envDir: path.resolve(import.meta.dirname, '../../'),
+  envPrefix: ['VITE_', 'userbypass'],
   cacheDir: path.resolve(import.meta.dirname, '../../node_modules/.vite/apps/compUI'),
   server: {
     port: PORT,

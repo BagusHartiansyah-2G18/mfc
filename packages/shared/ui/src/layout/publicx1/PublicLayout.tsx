@@ -35,6 +35,7 @@ export interface PublicLayoutProps extends React.HTMLAttributes<HTMLDivElement> 
   footer?: React.ReactNode
   mainClassName?: string
   children?: React.ReactNode
+  icon?: React.ReactNode
 }
 
 export const PublicLayout = React.forwardRef<HTMLDivElement, PublicLayoutProps>(
@@ -48,6 +49,7 @@ export const PublicLayout = React.forwardRef<HTMLDivElement, PublicLayoutProps>(
       footer,
       mainClassName,
       children,
+      icon,
       className,
       ...props
     },
@@ -71,7 +73,7 @@ export const PublicLayout = React.forwardRef<HTMLDivElement, PublicLayoutProps>(
             {header !== undefined ? (
               header
             ) : (
-              <PublicHeader brand={brand} dashboardPath={dashboardPath} links={links} />
+              <PublicHeader brand={brand} dashboardPath={dashboardPath} links={links} icon={icon} />
             )}
 
             {/* Main Content Area */}

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { UnauthorizedException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { UnauthorizedException, ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -148,5 +148,50 @@ describe('AuthService', () => {
         }),
       })
     );
+  });
+
+  it('locks account temporarily after 5 consecutive failed attempts (brute-force protection)', async () => {
+    const passwordHash = await bcrypt.hash('CorrectPass!', 10);
+    mockPrisma.user.findFirst.mockResolvedValue({
+      id: 'usr-bf',
+      username: 'bruteforce',
+      name: 'Brute Force Target',
+      email: 'bf@example.com',
+      passwordHash,
+      status: 'active',
+      role: { name: 'Staff', permissions: [] },
+    });
+
+    for (let i = 0; i < 4; i++) {
+      await expect(
+        authService.login({ emailOrUsername: 'bf@example.com', password: 'Wrong' }, '10.0.0.9')
+      ).rejects.toThrow(UnauthorizedException);
+    }
+
+    // 5th attempt triggers lockout (ForbiddenException & ACCOUNT_LOCKED audit log)
+    await expect(
+      authService.login({ emailOrUsername: 'bf@example.com', password: 'Wrong' }, '10.0.0.9')
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(mockPrisma.auditLog.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'ACCOUNT_LOCKED',
+          entityId: 'usr-bf',
+        }),
+      })
+    );
+
+    // Even valid password should be rejected while locked
+    await expect(
+      authService.login({ emailOrUsername: 'bf@example.com', password: 'CorrectPass!' }, '10.0.0.9')
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('throws ServiceUnavailableException when database connection fails', async () => {
+    mockPrisma.user.findFirst.mockRejectedValue(new Error("Can't reach database server"));
+    await expect(
+      authService.login({ emailOrUsername: 'admin@bgs-software.id', password: 'Password123!' })
+    ).rejects.toThrow(ServiceUnavailableException);
   });
 });

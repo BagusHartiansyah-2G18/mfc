@@ -75,5 +75,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     testTimeout: 15000,
+    setupFiles: [path.resolve(import.meta.dirname, '../../test-setup.ts')],
   },
 });
