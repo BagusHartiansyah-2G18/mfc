@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Component, Suspense, useEffect, useState, useMemo, type ReactNode } from 'react';
 import { Route, Routes, Navigate, Link, useNavigate } from 'react-router-dom';
 import {
   AppShell,
@@ -15,7 +15,7 @@ import {
   CardTitle,
   type FeatureMenu,
 } from '@org/ui';
-import { AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
+import { AlertTriangle, RefreshCw, LogOut, LayoutGrid, ExternalLink, Layers } from 'lucide-react';
 import { lazyProvider } from './mf';
 import { loadFeatureMenu } from './config/feature';
 import { SoftwareHouseLanding } from './pages/SoftwareHouseLanding';
@@ -41,7 +41,7 @@ class ProviderBoundary extends Component<
   ProviderBoundaryProps,
   ProviderBoundaryState
 > {
-  state: ProviderBoundaryState = { error: null };
+  override state: ProviderBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): ProviderBoundaryState {
     return { error };
@@ -51,11 +51,8 @@ class ProviderBoundary extends Component<
     this.setState({ error: null });
   };
 
-  render() {
+  override render() {
     if (this.state.error) {
-      const isRemoteNotFound =
-        this.state.error.message.includes('#RUNTIME-008') ||
-        this.state.error.message.includes('Failed to fetch dynamically imported module');
       const remotePort = this.props.name === 'userMgmt' ? 4202 : 4201;
       const remoteUrl = `http://localhost:${remotePort}`;
 
@@ -139,10 +136,14 @@ class ProviderBoundary extends Component<
 
 const CompUIApp = lazyProvider<{ basePath?: string }>('compUI', 'App');
 const UserMgmtApp = lazyProvider<{ basePath?: string }>('userMgmt', 'App');
+const RemoteNotedView = lazyProvider<{ apiBaseUrl?: string }>('compUI', 'NotedView');
+const RemoteStandaloneQuestionnaire = lazyProvider<{ shareSlug?: string; apiBaseUrl?: string }>('compUI', 'StandaloneQuestionnaire');
+const RemoteStandaloneNotePage = lazyProvider<{ kdJudul?: string; apiBaseUrl?: string }>('compUI', 'StandaloneNotePage');
 
 function PortalHeader({ brand }: { brand: string }) {
   const navigate = useNavigate();
   const { session, isDevBypass, logout } = useAuth();
+  const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
 
   const initials = (session?.name || 'OP')
     .split(/\s+/)
@@ -178,6 +179,90 @@ function PortalHeader({ brand }: { brand: string }) {
         <div className="flex items-center justify-between gap-4">
           <DashHeaderBrand title={brand} href="/compUI" />
           <DashHeaderActions>
+            {/* App Switcher Launcher */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsAppMenuOpen(!isAppMenuOpen)}
+                className="flex items-center justify-center h-8 w-8 rounded-lg border border-border/80 bg-card hover:bg-muted text-foreground transition-colors cursor-pointer"
+                title="Buka Aplikasi Ekosistem MFC"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+
+              {isAppMenuOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-72 rounded-2xl border border-border/80 bg-card p-3 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100"
+                  onClick={() => setIsAppMenuOpen(false)}
+                >
+                  <p className="text-xs font-bold text-muted-foreground px-2 py-1 uppercase tracking-wider">
+                    Ekosistem Micro Frontend
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAppMenuOpen(false);
+                        navigate('/');
+                      }}
+                      className="flex flex-col p-2.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 transition-colors group text-left cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between text-primary">
+                        <span className="font-bold text-xs">Portal Jasa</span>
+                        <span className="h-2 w-2 rounded-full bg-primary" />
+                      </div>
+                      <span className="text-[10px] text-primary/80 font-mono mt-1">:4200 (Aktif)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAppMenuOpen(false);
+                        navigate('/noted');
+                      }}
+                      className="flex flex-col p-2.5 rounded-xl border border-border/60 hover:bg-muted/60 transition-colors group text-left cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between text-primary">
+                        <span className="font-bold text-xs group-hover:underline">MFC Noted</span>
+                        <Layers className="h-3 w-3 opacity-60" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-mono mt-1">Hierarki WBS</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAppMenuOpen(false);
+                        navigate('/user-management');
+                      }}
+                      className="flex flex-col p-2.5 rounded-xl border border-border/60 hover:bg-muted/60 transition-colors group text-left cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between text-emerald-500">
+                        <span className="font-bold text-xs group-hover:underline">User Mgmt</span>
+                        <Users className="h-3 w-3 opacity-60" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-mono mt-1">Akses & Tim</span>
+                    </button>
+
+                    {isDevBypass && (
+                      <a
+                        href="http://localhost:4201/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex flex-col p-2.5 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                          <span className="font-bold text-xs group-hover:underline">Dev compUI</span>
+                          <ExternalLink className="h-3 w-3 opacity-60" />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-mono mt-1">:4201 (Raw)</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {session && (
               <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground pr-1">
                 <span className="font-semibold text-foreground" data-testid="portal-active-user">
@@ -216,9 +301,55 @@ function PortalHeader({ brand }: { brand: string }) {
   );
 }
 
+function NotedRouteHandler({
+  effectiveMenu,
+  brandName,
+}: {
+  effectiveMenu: FeatureMenu | null;
+  brandName: string;
+}) {
+  const { session } = useAuth();
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const hasViewParam = Boolean(searchParams.get('viewNote') || searchParams.get('note') || searchParams.get('kdJudul'));
+
+  // Jika pengunjung belum login dan mengakses catatan spesifik (misal ?viewNote=1),
+  // sajikan langsung Halaman Mandiri Catatan Bebas Login (Mode Publik) tanpa me-redirect ke login!
+  if (!session && hasViewParam) {
+    return (
+      <ProviderBoundary name="compUI">
+        <RemoteStandaloneNotePage apiBaseUrl="http://localhost:3002/api" />
+      </ProviderBoundary>
+    );
+  }
+
+  // Jika sudah login atau akses ke root dashboard /noted:
+  return (
+    <RouteGuard>
+      {effectiveMenu ? (
+        <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
+          <ProviderBoundary name="compUI">
+            <div className="p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
+              <RemoteNotedView apiBaseUrl="http://localhost:3002/api" />
+            </div>
+          </ProviderBoundary>
+        </AppShell>
+      ) : (
+        <div className="flex h-screen gap-4 p-4">
+          <Skeleton className="h-full w-64" />
+          <div className="flex-1 space-y-4">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
+      )}
+    </RouteGuard>
+  );
+}
+
 export function App() {
   const [menu, setMenu] = useState<FeatureMenu | null>(null);
   const brandName = import.meta.env.VITE_BRAND_NAME || 'VITE_BRAND_NAME';
+  const { isDevBypass } = useAuth();
 
   useEffect(() => {
     let mounted = true;
@@ -231,6 +362,17 @@ export function App() {
     };
   }, []);
 
+  const effectiveMenu = useMemo(() => {
+    if (!menu) return null;
+    if (isDevBypass) return menu;
+    return {
+      ...menu,
+      menus: menu.menus.filter((sec) => sec.section !== 'Micro Front End (compUI)'),
+    };
+  }, [menu, isDevBypass]);
+
+  const defaultDashboardPath = isDevBypass ? '/compUI' : '/noted';
+
   return (
     <Routes>
       {/* 1. Halaman Publik: Website Promosi Jasa Software Development */}
@@ -238,7 +380,7 @@ export function App() {
         path="/"
         element={
           <PublicLayout brand={brandName} 
-            dashboardPath="/compUI" 
+            dashboardPath={defaultDashboardPath} 
             icon={<img src="mfc/android-chrome-192x192.png" alt="MFC Logo" className="h-10 w-10 rounded-full object-cover" />}>
             <SoftwareHouseLanding />
           </PublicLayout>
@@ -260,27 +402,91 @@ export function App() {
         }
       />
 
+      {/* 2b. Halaman Formulir / Kuisioner Publik Mandiri Bebas Login (MFC Dynamic Forms) */}
+      <Route
+        path="/p/:shareSlug"
+        element={
+          <ProviderBoundary name="compUI">
+            <RemoteStandaloneQuestionnaire apiBaseUrl="http://localhost:3002/api" />
+          </ProviderBoundary>
+        }
+      />
+      <Route
+        path="/survey/:shareSlug"
+        element={
+          <ProviderBoundary name="compUI">
+            <RemoteStandaloneQuestionnaire apiBaseUrl="http://localhost:3002/api" />
+          </ProviderBoundary>
+        }
+      />
+      <Route
+        path="/formPublic/:shareSlug"
+        element={
+          <ProviderBoundary name="compUI">
+            <RemoteStandaloneQuestionnaire apiBaseUrl="http://localhost:3002/api" />
+          </ProviderBoundary>
+        }
+      />
+      <Route
+        path="/formPublic"
+        element={
+          <ProviderBoundary name="compUI">
+            <RemoteStandaloneQuestionnaire apiBaseUrl="http://localhost:3002/api" />
+          </ProviderBoundary>
+        }
+      />
+
+      {/* 2c. Halaman Catatan Mandiri di Luar Dashboard / Bebas Login (MFC Note Viewer) */}
+      <Route
+        path="/n/:kdJudul"
+        element={
+          <ProviderBoundary name="compUI">
+            <RemoteStandaloneNotePage apiBaseUrl="http://localhost:3002/api" />
+          </ProviderBoundary>
+        }
+      />
+      <Route
+        path="/n"
+        element={
+          <ProviderBoundary name="compUI">
+            <RemoteStandaloneNotePage apiBaseUrl="http://localhost:3002/api" />
+          </ProviderBoundary>
+        }
+      />
+      <Route
+        path="/noted/view/:kdJudul"
+        element={
+          <ProviderBoundary name="compUI">
+            <RemoteStandaloneNotePage apiBaseUrl="http://localhost:3002/api" />
+          </ProviderBoundary>
+        }
+      />
+
       {/* 3. Halaman Dashboard Micro Front End (compUI) dengan AppShell & Sidebar */}
       <Route
         path="/compUI/*"
         element={
-          <RouteGuard>
-            {menu ? (
-              <AppShell menu={menu} header={<PortalHeader brand={brandName} />}>
-                <ProviderBoundary name="compUI">
-                  <CompUIApp basePath="/compUI" />
-                </ProviderBoundary>
-              </AppShell>
-            ) : (
-              <div className="flex h-screen gap-4 p-4">
-                <Skeleton className="h-full w-64" />
-                <div className="flex-1 space-y-4">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-64 w-full" />
+          !isDevBypass ? (
+            <Navigate to="/noted" replace />
+          ) : (
+            <RouteGuard>
+              {effectiveMenu ? (
+                <AppShell menu={effectiveMenu} header={<PortalHeader brand={brandName} />}>
+                  <ProviderBoundary name="compUI">
+                    <CompUIApp basePath="/compUI" />
+                  </ProviderBoundary>
+                </AppShell>
+              ) : (
+                <div className="flex h-screen gap-4 p-4">
+                  <Skeleton className="h-full w-64" />
+                  <div className="flex-1 space-y-4">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                  </div>
                 </div>
-              </div>
-            )}
-          </RouteGuard>
+              )}
+            </RouteGuard>
+          )
         }
       />
 
@@ -289,8 +495,8 @@ export function App() {
         path="/user-management/*"
         element={
           <RouteGuard>
-            {menu ? (
-              <AppShell menu={menu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
+            {effectiveMenu ? (
+              <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
                 <ProviderBoundary name="userMgmt">
                   <UserMgmtApp basePath="/user-management" />
                 </ProviderBoundary>
@@ -308,16 +514,26 @@ export function App() {
         }
       />
 
-      {/* 4. Alias Navigasi Cepat */}
-      <Route path="/widgets" element={<Navigate to="/compUI/widgets" replace />} />
-      <Route path="/dashboard" element={<Navigate to="/compUI" replace />} />
+      {/* 5. Halaman Aplikasi Noted: Mendukung Mode Publik (tanpa login jika ada ?viewNote=1) & Mode Dashboard Terintegrasi */}
+      <Route
+        path="/noted"
+        element={<NotedRouteHandler effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+      <Route
+        path="/noted/*"
+        element={<NotedRouteHandler effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+
+      {/* 6. Alias Navigasi Cepat */}
+      <Route path="/widgets" element={<Navigate to={isDevBypass ? "/compUI/widgets" : "/noted"} replace />} />
+      <Route path="/dashboard" element={<Navigate to={isDevBypass ? "/compUI" : "/noted"} replace />} />
       <Route path="/users" element={<Navigate to="/user-management" replace />} />
 
       {/* 5. Fallback 404 */}
       <Route
         path="*"
         element={
-          <PublicLayout brand={brandName} dashboardPath="/compUI">
+          <PublicLayout brand={brandName} dashboardPath={defaultDashboardPath}>
             <div className="mx-auto max-w-md py-20 px-4 text-center">
               <Card>
                 <CardHeader>

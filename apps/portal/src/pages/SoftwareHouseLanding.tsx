@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@org/auth';
 import {
   Code2,
   Rocket,
@@ -42,6 +43,8 @@ import {
 } from '@org/ui';
 
 export function SoftwareHouseLanding() {
+  const { isDevBypass } = useAuth();
+  const demoLink = isDevBypass ? '/compUI' : '/noted';
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [selectedService, setSelectedService] = useState('Web Application');
 
@@ -111,7 +114,7 @@ export function SoftwareHouseLanding() {
             </a>
           </Button>
           <Button asChild variant="outline" size="lg" className="w-full sm:w-auto text-base gap-2 px-6">
-            <Link to="/compUI">
+            <Link to={demoLink}>
               <span>Buka Live Demo Platform</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -337,7 +340,7 @@ export function SoftwareHouseLanding() {
               <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-indigo-500" /> Pelatihan & Transfer Knowledge untuk Tim Internal</div>
             </div>
             <Button asChild variant="outline" className="w-full sm:w-auto font-semibold border-indigo-500/30">
-              <Link to="/compUI">Pelajari Arsitektur Kami</Link>
+              <Link to={demoLink}>Pelajari Arsitektur Kami</Link>
             </Button>
           </div>
         </div>

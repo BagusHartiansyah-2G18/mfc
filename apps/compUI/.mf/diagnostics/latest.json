@@ -1,10 +1,10 @@
 {
   "latestErrorEvent": {
     "code": "TYPE-001",
-    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"/usr/local/bin/node /app/node_modules/typescript/bin/tsc --project /app/apps/compUI/node_modules/.federation/tsconfig.694e18f42a3092a2963854eb9307df43.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
+    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"/usr/local/bin/node /app/node_modules/typescript/bin/tsc --project /app/apps/compUI/node_modules/.federation/tsconfig.2523f33f1a0cee13490a889f544f6ee7.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
     "args": {
-      "cmd": "/usr/local/bin/node /app/node_modules/typescript/bin/tsc --project /app/apps/compUI/node_modules/.federation/tsconfig.694e18f42a3092a2963854eb9307df43.json"
+      "cmd": "/usr/local/bin/node /app/node_modules/typescript/bin/tsc --project /app/apps/compUI/node_modules/.federation/tsconfig.2523f33f1a0cee13490a889f544f6ee7.json"
     },
-    "timestamp": 1794374328694
+    "timestamp": 1795153231604
   }
 }

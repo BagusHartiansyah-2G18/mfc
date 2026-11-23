@@ -40,9 +40,16 @@ export default defineConfig({
   plugins: [
     federation({
       name: 'comp_ui',
+      dts: false,
       filename: 'remoteEntry.js',
       exposes: {
         './App': './src/App.tsx',
+        './NotedView': './src/components/noted/NotedView.tsx',
+        './FlexibleFormRenderer': './src/components/noted/forms/NoteDynamicFormRenderer.tsx',
+        './FlexibleFormTable': './src/components/noted/forms/NoteDynamicFormTable.tsx',
+        './PublicFormPage': './src/components/noted/forms/PublicFormPage.tsx',
+        './StandaloneQuestionnaire': './src/components/noted/forms/StandaloneQuestionnairePage.tsx',
+        './StandaloneNotePage': './src/components/noted/StandaloneNotePage.tsx',
       },
       shared: {
         react: { singleton: true, requiredVersion: '^19.0.0' },

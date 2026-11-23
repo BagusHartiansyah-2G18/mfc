@@ -15,18 +15,31 @@ async function bootstrap() {
   // Set Global API Prefix: /api
   app.setGlobalPrefix('api');
 
-  // CORS Configuration for MFE Apps (Portal 4200, CompUI 4201, UserMgmt 4202)
+  // CORS Configuration for MFE Apps (Portal 4200, CompUI 4201, UserMgmt 4202, Noted 4203)
   app.enableCors({
     origin: [
       'http://localhost:4200',
       'http://localhost:4201',
       'http://localhost:4202',
+      'http://localhost:4203',
       'http://127.0.0.1:4200',
       'http://127.0.0.1:4201',
       'http://127.0.0.1:4202',
+      'http://127.0.0.1:4203',
+      /^http:\/\/localhost:[0-9]+$/,
+      /^http:\/\/127\.0\.0\.1:[0-9]+$/,
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Accept'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Request-ID',
+      'x-request-id',
+      'Accept',
+      'X-Requested-With',
+      'Origin',
+    ],
+    exposedHeaders: ['X-Request-ID', 'x-request-id'],
     credentials: true,
   });
 

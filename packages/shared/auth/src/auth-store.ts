@@ -54,7 +54,7 @@ function parseEnvFlag(val: unknown): boolean | undefined {
 }
 
 export function getEnvBypassSetting(): boolean {
-  const metaEnv = typeof import.meta !== 'undefined' ? (import.meta.env as any) : undefined;
+  const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any)?.env : undefined;
   const procEnv = typeof process !== 'undefined' ? (process.env as any) : undefined;
 
   const candidates = [
@@ -69,7 +69,7 @@ export function getEnvBypassSetting(): boolean {
 }
 
 function isVitestEnv(): boolean {
-  const metaEnv = typeof import.meta !== 'undefined' ? (import.meta.env as any) : undefined;
+  const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any)?.env : undefined;
   const procEnv = typeof process !== 'undefined' ? (process.env as any) : undefined;
   return Boolean(procEnv?.VITEST || metaEnv?.MODE === 'test');
 }
@@ -161,22 +161,75 @@ export function getSession(): UserSession | null {
   if (typeof window === 'undefined') return null;
 
   try {
-    // 1. Cek penyimpanan persisten (Remember Me: 7 hari)
+    // 0. Synchronous URL SSO Token Detection (Eliminasi Total Race Condition Token Baru)
+    if (window.location && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const ssoToken = params.get('sso_token') || params.get('token');
+      const ssoRefresh = params.get('sso_refresh');
+      if (ssoToken && ssoToken.includes('.')) {
+        const parts = ssoToken.split('.');
+        if (parts.length === 3) {
+          try {
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            const expMs = payload.exp
+              ? payload.exp < 10000000000
+                ? payload.exp * 1000
+                : payload.exp
+              : Date.now() + 7 * 86400000;
+
+            if (expMs + 60000 > Date.now()) {
+              const ssoSession: UserSession = {
+                id: payload.id || 'usr-1',
+                username: payload.username || payload.email?.split('@')[0] || 'user',
+                name: payload.name || payload.email?.split('@')[0] || 'User',
+                email: payload.email || '',
+                role: payload.role || 'Super Administrator',
+                token: ssoToken,
+                refreshToken: ssoRefresh || undefined,
+                expiresAt: expMs,
+                rememberMe: true,
+              };
+
+              // Persist langsung ke storage secara sinkron
+              clearExpiredSessionFlag();
+              const serialized = JSON.stringify(ssoSession);
+              window.localStorage.setItem(STORAGE_SESSION_KEY, serialized);
+              window.localStorage.setItem(STORAGE_REMEMBER_KEY, 'true');
+
+              // Bersihkan query param URL tanpa reload halaman
+              params.delete('sso_token');
+              params.delete('token');
+              params.delete('sso_refresh');
+              const newSearch = params.toString() ? `?${params.toString()}` : '';
+              window.history.replaceState({}, document.title, window.location.pathname + newSearch);
+
+              notify(ssoSession);
+              return ssoSession;
+            }
+          } catch (e) {
+            console.warn('[auth-store] Gagal decode URL SSO token:', e);
+          }
+        }
+      }
+    }
+
+    // 1. Cek penyimpanan persisten (Remember Me: 30 hari)
     const persistentRaw = window.localStorage.getItem(STORAGE_SESSION_KEY);
     if (persistentRaw) {
       const sess: UserSession = JSON.parse(persistentRaw);
-      if (sess.expiresAt > Date.now()) {
+      // Toleransi 60 detik clock-skew
+      if (sess.expiresAt + 60000 > Date.now()) {
         return sess;
       }
       window.localStorage.removeItem(STORAGE_SESSION_KEY);
       window.sessionStorage?.setItem(STORAGE_EXPIRED_FLAG_KEY, 'true');
     }
 
-    // 2. Cek penyimpanan tab browser (Normal Session: 30 menit)
+    // 2. Cek penyimpanan tab browser (Normal Session: 2 jam)
     const sessionRaw = window.sessionStorage.getItem(STORAGE_SESSION_KEY);
     if (sessionRaw) {
       const sess: UserSession = JSON.parse(sessionRaw);
-      if (sess.expiresAt > Date.now()) {
+      if (sess.expiresAt + 60000 > Date.now()) {
         return sess;
       }
       window.sessionStorage.removeItem(STORAGE_SESSION_KEY);
@@ -201,17 +254,21 @@ export function getSession(): UserSession | null {
  * Menyimpan sesi login baru
  */
 export function setSession(
-  user: Omit<UserSession, 'expiresAt'>,
+  user: Omit<UserSession, 'expiresAt'> & { expiresAt?: number },
   rememberMe: boolean = false
 ): UserSession {
-  const durationMs = rememberMe
-    ? 7 * 24 * 60 * 60 * 1000 // 7 hari
-    : 30 * 60 * 1000;         // 30 menit
+  // Durasi session: 30 hari untuk rememberMe, 2 jam untuk session standar
+  const durationMs =
+    user.expiresAt && user.expiresAt > Date.now()
+      ? user.expiresAt - Date.now()
+      : rememberMe
+      ? 30 * 24 * 60 * 60 * 1000 // 30 hari
+      : 2 * 60 * 60 * 1000;       // 2 jam
 
   const session: UserSession = {
     ...user,
     rememberMe,
-    expiresAt: Date.now() + durationMs,
+    expiresAt: user.expiresAt && user.expiresAt > Date.now() ? user.expiresAt : Date.now() + durationMs,
   };
 
   try {

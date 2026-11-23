@@ -38,6 +38,9 @@
     },
     {
       "path": "./packages/shared/auth"
+    },
+    {
+      "path": "./apps/api-noted"
     }
   ]
 }

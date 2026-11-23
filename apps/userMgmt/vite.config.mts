@@ -40,6 +40,7 @@ export default defineConfig({
   plugins: [
     federation({
       name: 'user_mgmt',
+      dts: false,
       filename: 'remoteEntry.js',
       exposes: {
         './App': './src/App.tsx',

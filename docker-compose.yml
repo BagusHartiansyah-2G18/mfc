@@ -25,6 +25,32 @@ services:
       npx tsc --build apps/api/tsconfig.app.json &&
       node apps/api/dist/main.js"
 
+  api-noted:
+    build:
+      context: .
+      dockerfile: apps/api-noted/Dockerfile
+    container_name: api-noted
+    working_dir: /app
+    env_file:
+      - .env
+    ports:
+      - "${PORT_API_NOTED:-3002}:${PORT_API_NOTED:-3002}"
+    volumes:
+      - .:/app
+      - node_modules-api-noted:/app/node_modules
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      PORT_API_NOTED: "${PORT_API_NOTED:-3002}"
+      DATABASE_NOTED_URL: "${DOCKER_DATABASE_NOTED_URL:-mysql://root:root@host.docker.internal:3306/bgs_noted}"
+      JWT_SECRET: "${JWT_SECRET:-bgs-microfe-enterprise-secret-key-2026}"
+    restart: unless-stopped
+    command: >
+      sh -c "([ -d /app/node_modules/@prisma/client ] || npm install --no-audit --no-fund --prefix /app) &&
+      npx prisma generate --schema=apps/api-noted/prisma/schema.prisma &&
+      npx tsc --build apps/api-noted/tsconfig.app.json &&
+      node apps/api-noted/dist/main.js"
+
   compui:
     build:
       context: .
@@ -66,6 +92,32 @@ services:
     restart: unless-stopped
     command: sh -c "([ -d /app/node_modules/@org/ui ] && [ -d /app/node_modules/@org/auth ] || npm install --ignore-scripts --no-audit --no-fund --prefix /app) && npx vite --config vite.config.mts --host 0.0.0.0 --port ${PORT_USER_MGMT:-4202} --strictPort"
 
+  noted:
+    build:
+      context: .
+      dockerfile: apps/noted/Dockerfile
+    container_name: noted
+    working_dir: /app/apps/noted
+    env_file:
+      - .env
+    ports:
+      - "${PORT_NOTED:-4203}:${PORT_NOTED:-4203}"
+    volumes:
+      - .:/app
+      - node_modules-noted:/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      PORT_NOTED: "${PORT_NOTED:-4203}"
+      VITE_API_URL: "${VITE_API_URL:-http://localhost:3001/api}"
+      VITE_API_NOTED_URL: "${VITE_API_NOTED_URL:-http://localhost:3002/api}"
+      VITE_COMP_UI_URL: "${VITE_COMP_UI_URL:-http://localhost:4201/remoteEntry.js}"
+    restart: unless-stopped
+    command: sh -c "([ -d /app/node_modules/@org/ui ] && [ -d /app/node_modules/@org/auth ] || npm install --ignore-scripts --no-audit --no-fund --prefix /app) && npx vite --config vite.config.mts --host 0.0.0.0 --port ${PORT_NOTED:-4203} --strictPort"
+    depends_on:
+      - api-noted
+      - compui
+
   portal:
     build:
       context: .
@@ -86,6 +138,8 @@ services:
       VITE_API_URL: "${VITE_API_URL:-http://localhost:3001/api}"
       VITE_COMP_UI_URL: "${VITE_COMP_UI_URL:-http://localhost:4201/remoteEntry.js}"
       VITE_USER_MGMT_URL: "${VITE_USER_MGMT_URL:-http://localhost:4202/remoteEntry.js}"
+      VITE_NOTED_URL: "${VITE_NOTED_URL:-http://localhost:4203/remoteEntry.js}"
+      VITE_API_NOTED_URL: "${VITE_API_NOTED_URL:-http://localhost:3002/api}"
     restart: unless-stopped
     command: sh -c "([ -d /app/node_modules/@org/ui ] && [ -d /app/node_modules/@org/auth ] || npm install --ignore-scripts --no-audit --no-fund --prefix /app) && npx vite --config vite.config.mts --host 0.0.0.0 --port ${PORT_PORTAL:-4200} --strictPort"
     depends_on:
@@ -97,5 +151,7 @@ volumes:
   node_modules-portal:
   node_modules-compui:
   node_modules-usermgmt:
+  node_modules-noted:
   node_modules-api:
   node_modules-api-local:
+  node_modules-api-noted:

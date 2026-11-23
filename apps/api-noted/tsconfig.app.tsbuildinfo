@@ -1,0 +1,1 @@
+{"root":["./prisma/seed.ts","./src/app.module.ts","./src/main.ts","./src/auth/jwt-auth.guard.ts","./src/notes/notes.controller.ts","./src/notes/notes.module.ts","./src/notes/notes.service.ts","./src/notes/dto/note.dto.ts","./src/prisma/prisma.module.ts","./src/prisma/prisma.service.ts"],"errors":true,"version":"6.0.3"}

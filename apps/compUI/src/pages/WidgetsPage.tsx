@@ -47,7 +47,6 @@ import {
   TabNav,
   StatusBadge,
   FormField,
-  InputWithIcon,
   PasswordInput,
 } from "@org/ui";
 import {
@@ -55,11 +54,7 @@ import {
   Sparkles,
   Users,
   Shield,
-  Sliders,
   Settings,
-  Bell,
-  CheckCircle2,
-  Lock,
 } from "lucide-react";
 
 export function WidgetsPage() {

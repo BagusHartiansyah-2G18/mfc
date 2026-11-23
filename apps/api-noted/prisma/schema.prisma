@@ -1,0 +1,299 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_NOTED_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model JudulNote {
+  id             String      @id @default(uuid())
+  kdJudul        String      @map("kdJudul") @db.VarChar(150)
+  parentKdJudul  String?     @map("parent_kd_judul") @db.VarChar(150)
+  kdMember       String      @map("kdMember") @db.VarChar(50)
+  kdMemberSub    String      @default("") @map("kdMemberSub") @db.VarChar(50)
+
+  // Konten Pokok
+  judul          String      @map("judul") @db.VarChar(255)
+  ringkasan      String      @map("ringkasan") @db.Text
+  catatanDetail  String?     @map("catatan_detail") @db.LongText
+  tingkat        Int         @default(0) @map("tingkat")
+
+  // Manajemen Siklus Hidup & Kategori Kerja
+  status         String      @default("IN_PROGRESS") @db.VarChar(30) // DRAFT, IN_PROGRESS, REVIEW, COMPLETED, BLOCKED
+  priority       String      @default("MEDIUM") @db.VarChar(20)     // LOW, MEDIUM, HIGH, URGENT
+  stage          String?     @db.VarChar(30)                        // ANALISIS, UI_DESIGN, DEVELOP, TESTING, DEPLOY
+
+  // Metrik & Progress Rollup
+  progress       Int         @default(0) @map("progress")           // 0 - 100%
+  weight         Decimal?    @default(1.0) @map("weight") @db.Decimal(5, 2)
+  targetBudget   Decimal?    @map("target_budget") @db.Decimal(15, 2)
+  realizedBudget Decimal?    @map("realized_budget") @db.Decimal(15, 2)
+
+  // Timeline & Tim
+  startDate      DateTime?   @map("start_date")
+  dueDate        DateTime?   @map("due_date")
+  completedAt    DateTime?   @map("completed_at")
+  picId          String?     @map("pic_id") @db.VarChar(100)
+  picName        String?     @map("pic_name") @db.VarChar(150)
+  approverId     String?     @map("approver_id") @db.VarChar(100)
+
+  // AI-Ready & Metadata Cerdas
+  isAiGenerated  Boolean     @default(false) @map("is_ai_generated")
+  aiHealthScore  String?     @map("ai_health_score") @db.VarChar(20) // GREEN, YELLOW, RED
+  aiSummary      String?     @map("ai_summary") @db.Text
+
+  // Visibilitas & Metadata
+  publikasi      Boolean     @default(false) @map("publikasi")
+  sharingMode    String      @default("PRIVATE") @map("sharing_mode") @db.VarChar(20) // "PUBLIC", "KHUSUS", "PRIVATE"
+  shareElements  Json?       @map("share_elements") // { "xcatatan": true, "xfile": true, "xform": true }
+  tags           String?     @db.VarChar(255)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  // Relasi Data Pendukung Lengkap
+  files          JudulFile[]
+  collaborators  JudulUserAccess[]
+  approvals      JudulApproval[]
+  transactions   JudulTransaction[]
+  checklists     JudulChecklist[]
+  dynamicForms   DataForm[]
+
+  @@unique([kdJudul, kdMember])
+  @@index([parentKdJudul, kdMember])
+  @@index([kdMember, tingkat])
+  @@index([status])
+  @@index([dueDate])
+  @@map("judul")
+}
+
+model JudulFile {
+  id             String    @id @default(uuid())
+  kdJudul        String    @map("kdJudul") @db.VarChar(150)
+  kdMember       String    @map("kdMember") @db.VarChar(50)
+  fileName       String    @map("file_name") @db.VarChar(255)
+  fileUrl        String    @map("file_url") @db.VarChar(500)
+  fileType       String    @map("file_type") @db.VarChar(50)       // "pdf", "image", "doc", "link"
+  mimeType       String?   @map("mime_type") @db.VarChar(100)      // "application/pdf", "image/png"
+  fileSizeBytes  Int?      @map("file_size_bytes")
+  checksumSha256 String?   @map("checksum_sha256") @db.VarChar(64)
+  category       String?   @db.VarChar(50)                         // "SOP", "FOTO", "BAST", "INVOICE"
+  keterangan     String?   @map("keterangan") @db.VarChar(255)
+  
+  // Analisis & OCR
+  ocrStatus      String    @default("PENDING") @map("ocr_status") @db.VarChar(30) // PENDING, EXTRACTED, SKIPPED
+  extractedText  String?   @map("extracted_text") @db.LongText
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  note           JudulNote @relation(fields: [kdJudul, kdMember], references: [kdJudul, kdMember], onDelete: Cascade)
+
+  @@index([kdJudul, kdMember])
+  @@map("judul_file")
+}
+
+model JudulUserAccess {
+  id           String    @id @default(uuid())
+  kdJudul      String    @map("kdJudul") @db.VarChar(150)
+  kdMember     String    @map("kdMember") @db.VarChar(50)
+  userId       String    @map("user_id") @db.VarChar(100)
+  userName     String    @map("user_name") @db.VarChar(150)
+  userEmail    String    @map("user_email") @db.VarChar(150)
+  role         String    @default("CONTRIBUTOR") @db.VarChar(30) // "OWNER", "APPROVER", "CONTRIBUTOR", "FOLLOWER"
+  canEdit      Boolean   @default(true) @map("can_edit")
+  canApprove   Boolean   @default(false) @map("can_approve")
+  inviteStatus String    @default("ACCEPTED") @map("invite_status") @db.VarChar(20) // PENDING, ACCEPTED, DECLINED
+  avatarUrl    String?   @map("avatar_url") @db.VarChar(500)
+  invitedAt    DateTime  @default(now()) @map("invited_at")
+
+  note         JudulNote @relation(fields: [kdJudul, kdMember], references: [kdJudul, kdMember], onDelete: Cascade)
+
+  @@unique([kdJudul, kdMember, userId])
+  @@index([userId])
+  @@map("judul_user_access")
+}
+
+model JudulApproval {
+  id               String    @id @default(uuid())
+  kdJudul          String    @map("kdJudul") @db.VarChar(150)
+  kdMember         String    @map("kdMember") @db.VarChar(50)
+  stageName        String    @map("stage_name") @db.VarChar(50)
+  requestedById    String    @map("requested_by_id") @db.VarChar(100)
+  approverId       String    @map("approver_id") @db.VarChar(100)
+  status           String    @default("PENDING") @db.VarChar(20) // PENDING, APPROVED, REJECTED
+  comments         String?   @db.Text
+  digitalSignature String?   @map("digital_signature") @db.VarChar(255)
+  approvedAt       DateTime? @map("approved_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  note             JudulNote @relation(fields: [kdJudul, kdMember], references: [kdJudul, kdMember], onDelete: Cascade)
+
+  @@index([kdJudul, kdMember])
+  @@map("judul_approvals")
+}
+
+model JudulTransaction {
+  id              String    @id @default(uuid())
+  kdJudul         String    @map("kdJudul") @db.VarChar(150)
+  kdMember        String    @map("kdMember") @db.VarChar(50)
+  trxDate         DateTime  @map("trx_date") @db.Date
+  nomorKuitansi   String?   @map("nomor_kuitansi") @db.VarChar(100)
+  uraian          String    @db.VarChar(255)
+  nominal         Decimal   @db.Decimal(15, 2)
+  category        String?   @default("OPERASIONAL") @db.VarChar(50) // "HONORARIUM", "PENGADAAN", "OPERASIONAL", "LISENSI"
+  receiptUrl      String?   @map("receipt_url") @db.VarChar(500)
+  recordedById    String    @map("recorded_by_id") @db.VarChar(100)
+  recordedByName  String    @map("recorded_by_name") @db.VarChar(150)
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  note            JudulNote @relation(fields: [kdJudul, kdMember], references: [kdJudul, kdMember], onDelete: Cascade)
+
+  @@index([kdJudul, kdMember])
+  @@index([trxDate])
+  @@map("judul_transactions")
+}
+
+model JudulChecklist {
+  id          String    @id @default(uuid())
+  kdJudul     String    @map("kdJudul") @db.VarChar(150)
+  kdMember    String    @map("kdMember") @db.VarChar(50)
+  itemText    String    @map("item_text") @db.VarChar(255)
+  isCompleted Boolean   @default(false) @map("is_completed")
+  completedAt DateTime? @map("completed_at")
+  completedBy String?   @map("completed_by") @db.VarChar(150)
+  assignedTo  String?   @map("assigned_to") @db.VarChar(150)
+  dueDate     DateTime? @map("due_date")
+  orderSeq    Int       @default(0) @map("order_seq")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  note        JudulNote @relation(fields: [kdJudul, kdMember], references: [kdJudul, kdMember], onDelete: Cascade)
+
+  @@index([kdJudul, kdMember])
+  @@map("judul_checklists")
+}
+
+model AuditLogNoted {
+  id         String   @id @default(uuid())
+  action     String   @db.VarChar(50)
+  kdJudul    String?  @map("kd_judul") @db.VarChar(150)
+  actorId    String?  @map("actor_id") @db.VarChar(100)
+  actorName  String?  @map("actor_name") @db.VarChar(150)
+  details    String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs_noted")
+}
+
+// -------------------------------------------------------------
+// Form Dinamis Fleksibel (User-Generated Dynamic Forms)
+// -------------------------------------------------------------
+
+model DataForm {
+  id            String          @id @default(uuid())
+  kd            String          @db.VarChar(10)          // Urutan form dalam note (misal "1", "2")
+  kdMember      String          @map("kd_member") @db.VarChar(50) // Pembuat form
+  kdMemberSub   String?         @map("kd_member_sub") @db.VarChar(50)
+  kdNote        String          @map("kd_note") @db.VarChar(150) // Relasi ke JudulNote kdJudul
+  tingkat       Int             @default(0)
+  tujuan        String          @db.VarChar(255)         // Judul/Keperluan Form
+  keterangan    String?         @db.Text                 // Petunjuk pengisian
+  
+  // Keyed-JSON Schema Definition
+  schemaVersion Int             @default(1) @map("schema_version")
+  fields        Json                                     // Array field: [{ key, label, type, required, options }]
+  
+  // Hak Akses & Publikasi Form (PUBLIC, KHUSUS, PRIVATE)
+  sharingMode   String          @default("PRIVATE") @map("sharing_mode") @db.VarChar(20)
+  isLocked      Boolean         @default(false) @map("is_locked")
+  allowSelfEdit Boolean         @default(true) @map("allow_self_edit")
+  shareSlug     String?         @unique @map("share_slug") @db.VarChar(64)
+  embedToken    String?         @map("embed_token") @db.VarChar(128)
+
+  // Layout & Kuota Form
+  formLayoutMode String?        @default("STANDARD") @map("form_layout_mode") @db.VarChar(20)
+  steps          Json?          // Array of wizard steps [{ id, title, description }]
+  maxResponses   Int?           @map("max_responses")
+  closeAt        DateTime?      @map("close_at")
+
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  note          JudulNote       @relation(fields: [kdNote, kdMember], references: [kdJudul, kdMember], onDelete: Cascade)
+  accessRules   DataFormAccess[]
+  values        ValueForm[]
+
+  @@unique([kdNote, tingkat, kd])
+  @@index([sharingMode])
+  @@map("data_forms")
+}
+
+model DataFormAccess {
+  id                  String    @id @default(uuid())
+  formId              String    @map("form_id") @db.VarChar(36)
+  friendUserId        String    @map("friend_user_id") @db.VarChar(100) // Dari tabel anggotas
+  friendName          String    @map("friend_name") @db.VarChar(150)
+  friendEmail         String?   @map("friend_email") @db.VarChar(150)
+  
+  canSubmit           Boolean   @default(true) @map("can_submit")
+  canViewAllResponses Boolean   @default(false) @map("can_view_all_responses")
+  canEditSchema       Boolean   @default(false) @map("can_edit_schema")
+
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  form                DataForm  @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, friendUserId])
+  @@map("data_form_access")
+}
+
+model ValueForm {
+  id             String    @id @default(uuid())
+  formId         String    @map("form_id") @db.VarChar(36)
+  schemaVersion  Int       @default(1) @map("schema_version")
+  
+  // Responden (Member Terdaftar atau Tamu Publik Bebas Login)
+  responderId    String?   @map("responder_id") @db.VarChar(100)
+  responderName  String    @map("responder_name") @db.VarChar(150) // Nama responden (wajib untuk tamu publik)
+  responderEmail String?   @map("responder_email") @db.VarChar(150) // Email responden
+  originHost     String?   @default("noted:4203") @map("origin_host") @db.VarChar(100)
+  
+  // Keyed-JSON Answers Map: { "answers": { "field_key": "val" }, "summary": "..." }
+  answers        Json
+  
+  status         String    @default("SUBMITTED") @db.VarChar(20) // DRAFT, SUBMITTED, VERIFIED, REJECTED
+  verifierNotes  String?   @map("verifier_notes") @db.Text
+  verifiedAt     DateTime? @map("verified_at")
+  verifiedBy     String?   @map("verified_by") @db.VarChar(150)
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  form           DataForm  @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, status])
+  @@index([responderId])
+  @@index([createdAt])
+  @@map("value_forms")
+}
+
+// -------------------------------------------------------------
+// Hub Pertemanan Pengguna (Friends List / Anggotas)
+// -------------------------------------------------------------
+
+model UserFriend {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id") @db.VarChar(100)      // Pengguna yang mengundang/berteman
+  friendId    String   @map("friend_id") @db.VarChar(100)    // ID rekan
+  friendName  String   @map("friend_name") @db.VarChar(150)
+  friendEmail String   @map("friend_email") @db.VarChar(150)
+  status      String   @default("ACCEPTED") @db.VarChar(20)  // PENDING, ACCEPTED, DECLINED
+  aktif       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@map("anggotas")
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@org/api-noted",
+  "version": "0.0.1",
+  "private": true,
+  "type": "commonjs",
+  "nx": {
+    "projectType": "application",
+    "targets": {
+      "build": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "npx tsc --build apps/api-noted/tsconfig.app.json"
+        }
+      },
+      "serve": {
+        "continuous": true,
+        "dependsOn": [
+          "build"
+        ],
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "node apps/api-noted/dist/main.js"
+        }
+      }
+    },
+    "tags": [
+      "scope:api-noted"
+    ]
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.4.2",
+    "@nestjs/core": "^12.4.2",
+    "@nestjs/platform-express": "^12.4.2",
+    "@prisma/client": "^6.19.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  }
+}
+

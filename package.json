@@ -3,18 +3,23 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "dev": "nx run-many -t serve --projects=portal,compUI,userMgmt --parallel=3",
-    "dev:all": "nx run-many -t serve --projects=portal,compUI,userMgmt,@org/api --parallel=4",
+    "dev": "nx run-many -t serve --projects=portal,compUI,userMgmt,noted --parallel=4",
+    "dev:all": "nx run-many -t serve --projects=portal,compUI,userMgmt,noted,@org/api,@org/api-noted --parallel=6",
     "dev:portal": "nx run portal:serve",
     "dev:compUI": "nx run compUI:serve",
     "dev:userMgmt": "nx run userMgmt:serve",
+    "dev:noted": "nx run noted:serve",
     "dev:api": "nx run @org/api:serve",
+    "dev:api:noted": "nx run @org/api-noted:serve",
     "build": "nx run-many -t build",
     "test": "vitest run",
     "prisma:generate": "prisma generate --schema=apps/api/prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=apps/api/prisma/schema.prisma",
     "prisma:seed": "node -r @swc-node/register apps/api/prisma/seed.ts",
-    "prisma:studio": "prisma studio --schema=apps/api/prisma/schema.prisma"
+    "prisma:studio": "prisma studio --schema=apps/api/prisma/schema.prisma",
+    "prisma:noted:generate": "prisma generate --schema=apps/api-noted/prisma/schema.prisma",
+    "prisma:noted:push": "prisma db push --schema=apps/api-noted/prisma/schema.prisma",
+    "prisma:noted:seed": "node -r @swc-node/register apps/api-noted/prisma/seed.ts"
   },
   "private": true,
   "dependencies": {

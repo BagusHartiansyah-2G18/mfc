@@ -5,19 +5,14 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  Input,
   Label,
   Textarea,
   Checkbox,
   Switch,
-  RadioGroup,
-  RadioGroupItem,
   Pagination,
   Button,
   Combobox,
   Badge,
-  Alert,
-  AlertDescription,
   type ComboboxItem,
   // Centralized @org/ui components
   InputWithIcon,
@@ -61,7 +56,7 @@ export function FormsPage() {
   const [searchVal, setSearchVal] = useState("");
   const [phoneVal, setPhoneVal] = useState("+62 812-3456-7890");
   const [emailVal, setEmailVal] = useState("engineer@bgs-software.id");
-  const [loadingInput, setLoadingInput] = useState(false);
+  const [loadingInput] = useState(false);
   const [errorInputVal, setErrorInputVal] = useState("Nilai tidak valid");
 
   // InputWithBtnPopUp States

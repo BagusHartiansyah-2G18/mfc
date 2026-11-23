@@ -1,0 +1,179 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  Req,
+  UseGuards,
+  Res,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import { FlexibleFormsService } from './flexible-forms.service';
+import {
+  CreateDataFormDto,
+  UpdateDataFormDto,
+  UpdateFormAccessDto,
+  SubmitFormValueDto,
+  UpdateFormValueDto,
+} from './dto/flexible-form.dto';
+import { JwtAuthGuard, RequestWithUser } from '../auth/jwt-auth.guard';
+
+@Controller('notes/:kdJudul/forms')
+export class FlexibleFormsController {
+  constructor(private readonly formsService: FlexibleFormsService) {}
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async getForms(
+    @Param('kdJudul') kdJudul: string,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.getForms(kdJudul, req.user!);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  async createForm(
+    @Param('kdJudul') kdJudul: string,
+    @Body() dto: CreateDataFormDto,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.createForm(kdJudul, dto, req.user!);
+  }
+
+  @Get(':formId')
+  @UseGuards(JwtAuthGuard)
+  async getFormDetail(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.getFormDetail(kdJudul, formId, req.user);
+  }
+
+  @Put(':formId')
+  @UseGuards(JwtAuthGuard)
+  async updateForm(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Body() dto: UpdateDataFormDto,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.updateForm(kdJudul, formId, dto, req.user!);
+  }
+
+  @Delete(':formId')
+  @UseGuards(JwtAuthGuard)
+  async deleteForm(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.deleteForm(kdJudul, formId, req.user!);
+  }
+
+  @Put(':formId/access')
+  @UseGuards(JwtAuthGuard)
+  async updateFormAccess(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Body() dto: UpdateFormAccessDto,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.updateFormAccess(kdJudul, formId, dto, req.user!);
+  }
+
+  // Dynamic Flat Projection API
+  @Get(':formId/data')
+  @UseGuards(JwtAuthGuard)
+  async getFormDataFlat(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Query() query: any,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.getFormDataFlat(kdJudul, formId, query, req.user);
+  }
+
+  @Post(':formId/values')
+  @UseGuards(JwtAuthGuard)
+  async submitFormValue(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Body() dto: SubmitFormValueDto,
+    @Req() req: RequestWithUser
+  ) {
+    const originHost = req.headers['host'] || 'noted:4203';
+    return await this.formsService.submitFormValue(kdJudul, formId, dto, req.user, originHost);
+  }
+
+  @Put(':formId/values/:valueId')
+  @UseGuards(JwtAuthGuard)
+  async updateFormValue(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Param('valueId') valueId: string,
+    @Body() dto: UpdateFormValueDto,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.updateFormValue(kdJudul, formId, valueId, dto, req.user!);
+  }
+
+  @Delete(':formId/values/:valueId')
+  @UseGuards(JwtAuthGuard)
+  async deleteFormValue(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Param('valueId') valueId: string,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.deleteFormValue(kdJudul, formId, valueId, req.user!);
+  }
+
+  @Get(':formId/export')
+  @UseGuards(JwtAuthGuard)
+  async exportFormData(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Query('format') format: string,
+    @Req() req: RequestWithUser,
+    @Res() res: Response
+  ) {
+    const exported = await this.formsService.exportFormData(
+      kdJudul,
+      formId,
+      format || 'json',
+      req.user
+    );
+    res.setHeader('Content-Type', exported.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${exported.filename}"`);
+    return res.send(exported.content);
+  }
+}
+
+// -------------------------------------------------------------
+// Controller Khusus Konsumsi Publik Bebas Login
+// -------------------------------------------------------------
+@Controller('public/forms')
+export class PublicFormsController {
+  constructor(private readonly formsService: FlexibleFormsService) {}
+
+  @Get(':shareSlug')
+  async getPublicForm(@Param('shareSlug') shareSlug: string) {
+    return await this.formsService.getPublicFormBySlug(shareSlug);
+  }
+
+  @Post(':shareSlug/values')
+  async submitPublicForm(
+    @Param('shareSlug') shareSlug: string,
+    @Body() dto: SubmitFormValueDto,
+    @Req() req: any
+  ) {
+    const originHost = req.headers['host'] || 'public-portal';
+    return await this.formsService.submitPublicFormBySlug(shareSlug, dto, originHost);
+  }
+}

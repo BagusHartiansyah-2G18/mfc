@@ -300,6 +300,10 @@ export function LoginPage() {
       const payload = await res.json().catch(() => null);
 
       if (res.ok && payload?.user && payload?.accessToken) {
+        if (payload.refreshToken && typeof window !== 'undefined') {
+          window.localStorage.setItem('mfc_auth_refresh_token', payload.refreshToken);
+        }
+
         authStore.setSession(
           {
             id: payload.user.id,
@@ -309,6 +313,7 @@ export function LoginPage() {
             role: payload.user.role,
             permissions: payload.user.permissions,
             token: payload.accessToken,
+            refreshToken: payload.refreshToken,
             avatarUrl: payload.user.avatarUrl,
           },
           rememberMe
@@ -510,7 +515,7 @@ export function LoginPage() {
               <img src="mfc/android-chrome-192x192.png" alt="MFC Logo" className="h-10 w-10 rounded-full object-cover" />
             </div>
             <div className="pr-4">
-              <div className="flex justify-between font-bold text-lg text-foreground leading-none">
+              <div className="flex justify-between font-bold text-lg text-light leading-none ">
                 {"MFC".split("").map((char, index) => (
                   <span key={index}>{char}</span>
                 ))}
@@ -895,93 +900,97 @@ export function LoginPage() {
           </form>
 
           {/* ===================================================================== */}
-          {/* SSO & SOCIAL LOGIN SECTION (FUTURE READY)                             */}
+          {/* SSO & SOCIAL LOGIN SECTION (DEVELOPER PREVIEW ONLY)                   */}
           {/* ===================================================================== */}
-          <div className="space-y-3 pt-1">
-            <div className="relative flex items-center justify-center">
-              <div className="w-full border-t border-border/80" />
-              <span className="bg-background px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground relative">
-                {lang === 'ID' ? 'atau masuk melalui SSO' : 'or enterprise SSO'}
-              </span>
-            </div>
-
-            {/* Provider Buttons */}
-            <div className="grid grid-cols-3 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setSsoInfoProvider('Microsoft Entra ID')}
-                className="h-9 text-xs rounded-xl gap-1.5 font-medium border-border/70"
-                title="Single Sign-On dengan Microsoft Entra ID"
-              >
-                <span className="h-3.5 w-3.5 rounded-xs bg-[#00A4EF] flex items-center justify-center text-[9px] text-white font-bold">
-                  M
+          {isDevBypass && (
+            <div className="space-y-3 pt-1">
+              <div className="relative flex items-center justify-center">
+                <div className="w-full border-t border-border/80" />
+                <span className="bg-background px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground relative">
+                  {lang === 'ID' ? 'atau masuk melalui SSO (Dev Preview)' : 'or enterprise SSO (Dev Preview)'}
                 </span>
-                <span className="truncate">Microsoft</span>
-              </Button>
+              </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setSsoInfoProvider('Google Workspace')}
-                className="h-9 text-xs rounded-xl gap-1.5 font-medium border-border/70"
-                title="Single Sign-On dengan Google Workspace"
-              >
-                <span className="h-3.5 w-3.5 rounded-full bg-rose-500 flex items-center justify-center text-[9px] text-white font-bold">
-                  G
-                </span>
-                <span className="truncate">Google</span>
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setSsoInfoProvider('GitHub Enterprise')}
-                className="h-9 text-xs rounded-xl gap-1.5 font-medium border-border/70"
-                title="Single Sign-On dengan GitHub Enterprise"
-              >
-                <span className="h-3.5 w-3.5 rounded-full bg-slate-800 text-white flex items-center justify-center text-[9px] font-bold">
-                  🐙
-                </span>
-                <span className="truncate">GitHub</span>
-              </Button>
-            </div>
-
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => setSsoInfoProvider('SAML 2.0 / OIDC')}
-                className="text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:underline transition-colors inline-flex items-center gap-1"
-              >
-                <Globe2 className="h-3 w-3" />
-                Mendukung SAML 2.0 & OpenID Connect (OIDC)
-              </button>
-            </div>
-          </div>
-
-          {/* ===================================================================== */}
-          {/* QUICK FILL SEED ACCOUNTS (DEVELOPMENT TESTING TOOL)                   */}
-          {/* ===================================================================== */}
-          <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-3 space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-semibold">
-              <span className="uppercase tracking-wider">Uji Akun Database (Quick Fill):</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {SEED_TEST_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
+              {/* Provider Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button
                   type="button"
-                  onClick={() => handleQuickFill(acc)}
-                  className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all hover:opacity-80 cursor-pointer ${acc.badgeColor}`}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSsoInfoProvider('Microsoft Entra ID')}
+                  className="h-9 text-xs rounded-xl gap-1.5 font-medium border-border/70"
+                  title="Single Sign-On dengan Microsoft Entra ID"
                 >
-                  {acc.role}
+                  <span className="h-3.5 w-3.5 rounded-xs bg-[#00A4EF] flex items-center justify-center text-[9px] text-white font-bold">
+                    M
+                  </span>
+                  <span className="truncate">Microsoft</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSsoInfoProvider('Google Workspace')}
+                  className="h-9 text-xs rounded-xl gap-1.5 font-medium border-border/70"
+                  title="Single Sign-On dengan Google Workspace"
+                >
+                  <span className="h-3.5 w-3.5 rounded-full bg-rose-500 flex items-center justify-center text-[9px] text-white font-bold">
+                    G
+                  </span>
+                  <span className="truncate">Google</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSsoInfoProvider('GitHub Enterprise')}
+                  className="h-9 text-xs rounded-xl gap-1.5 font-medium border-border/70"
+                  title="Single Sign-On dengan GitHub Enterprise"
+                >
+                  <span className="h-3.5 w-3.5 rounded-full bg-slate-800 text-white flex items-center justify-center text-[9px] font-bold">
+                    🐙
+                  </span>
+                  <span className="truncate">GitHub</span>
+                </Button>
+              </div>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setSsoInfoProvider('SAML 2.0 / OIDC')}
+                  className="text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:underline transition-colors inline-flex items-center gap-1"
+                >
+                  <Globe2 className="h-3 w-3" />
+                  Mendukung SAML 2.0 & OpenID Connect (OIDC)
                 </button>
-              ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* ===================================================================== */}
+          {/* QUICK FILL SEED ACCOUNTS (DEVELOPMENT TESTING TOOL - HANYA DI DEV)    */}
+          {/* ===================================================================== */}
+          {isDevBypass && (
+            <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-3 space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground font-semibold">
+                <span className="uppercase tracking-wider">Uji Akun Database (Quick Fill):</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {SEED_TEST_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => handleQuickFill(acc)}
+                    className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all hover:opacity-80 cursor-pointer ${acc.badgeColor}`}
+                  >
+                    {acc.role}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ===================================================================== */}
           {/* ACCESS REQUEST SECTION                                                */}
@@ -1013,21 +1022,21 @@ export function LoginPage() {
         <div className="space-y-4 pt-6 border-t border-border/60 text-center">
           {/* Environment & Runtime Status Information Badges */}
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold py-0.5 px-2.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
-              [ DEVELOPMENT ENVIRONMENT ]
-            </span>
+            {isDevBypass && (
+              <>
+                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold py-0.5 px-2.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
+                  [ DEVELOPMENT ENVIRONMENT ]
+                </span>
 
-            <span
-              data-testid="status-bypass-pill"
-              className={`inline-flex items-center gap-1 font-mono text-[10px] font-bold py-0.5 px-2.5 rounded-full border ${
-                isDevBypass
-                  ? 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800'
-                  : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-              }`}
-            >
-              [ DEV BYPASS: {isDevBypass ? 'ON' : 'OFF'} ]
-            </span>
+                <span
+                  data-testid="status-bypass-pill"
+                  className="inline-flex items-center gap-1 font-mono text-[10px] font-bold py-0.5 px-2.5 rounded-full border bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800"
+                >
+                  [ DEV BYPASS: ON ]
+                </span>
+              </>
+            )}
 
             <button
               type="button"
@@ -1074,7 +1083,7 @@ export function LoginPage() {
 
           {/* Footer Copyright */}
           <div className="text-xs text-muted-foreground font-medium">
-            &copy; 2026 MFC Software Solutions. All Rights Reserved.
+            &copy; 2026 MFC Solutions. All Rights Reserved.
           </div>
         </div>
       </div>

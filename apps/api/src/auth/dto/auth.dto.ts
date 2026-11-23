@@ -8,3 +8,8 @@ export class LogoutDto {
   userId?: string;
   userName?: string;
 }
+
+export class RefreshTokenDto {
+  refreshToken!: string;
+}
+

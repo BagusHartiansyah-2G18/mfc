@@ -6,6 +6,7 @@ export interface UserSession {
   role: 'Administrator' | 'Staff' | 'Manager' | 'Customer' | string;
   permissions?: string[]; // e.g. ['users:view', 'users:create', 'roles:view']
   token: string;
+  refreshToken?: string;
   rememberMe?: boolean;
   expiresAt: number; // Unix timestamp in milliseconds
   avatarUrl?: string;

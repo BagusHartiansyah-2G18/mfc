@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDto, LogoutDto } from './dto/auth.dto';
+import { LoginDto, LogoutDto, RefreshTokenDto } from './dto/auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -38,6 +38,37 @@ export class AuthController {
       success: true,
       message: 'Autentikasi berhasil.',
       ...result,
+    };
+  }
+
+  @Post('refresh')
+  async refresh(@Body() dto: RefreshTokenDto) {
+    const result = await this.authService.refreshAccessToken(dto.refreshToken);
+    return {
+      success: true,
+      message: 'Token berhasil diperbarui.',
+      ...result,
+    };
+  }
+
+  @Get('sso/session')
+  async ssoSession(@Headers('authorization') authHeader?: string) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Token SSO tidak ditemukan.');
+    }
+
+    const token = authHeader.substring(7);
+    const payload = this.authService.verifyToken(token);
+    if (!payload) {
+      throw new UnauthorizedException('Sesi SSO telah berakhir atau token tidak valid.');
+    }
+
+    const user = await this.authService.getMe(payload.id);
+    return {
+      success: true,
+      user,
+      token,
+      expiresAt: payload.exp,
     };
   }
 
