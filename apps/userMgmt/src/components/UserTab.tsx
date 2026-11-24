@@ -18,6 +18,8 @@ import {
   Mail,
   Sparkles,
   Check,
+  CheckCircle2,
+  Loader2,
   ArrowRight,
   ArrowLeft,
 } from 'lucide-react';
@@ -120,6 +122,8 @@ export function UserTab({ users, roles }: UserTabProps) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [targetUser, setTargetUser] = useState<User | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
   const [selectedUserForProfile, setSelectedUserForProfile] = useState<User | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [addTab, setAddTab] = useState<'account' | 'profile'>('account');
@@ -522,19 +526,35 @@ export function UserTab({ users, roles }: UserTabProps) {
     setIsAddOpen(false);
   };
 
-  const handleResetPassword = (e: FormEvent) => {
+  const handleResetPassword = async (e: FormEvent) => {
     e.preventDefault();
     if (!targetUser) return;
     setResetTouched(true);
     setErrorMessage('');
+    setResetSuccessMessage(null);
 
     if (resetPasswordError || resetConfirmError) {
       setErrorMessage(resetPasswordError || resetConfirmError);
       return;
     }
 
-    setIsResetOpen(false);
-    setTargetUser(null);
+    try {
+      setIsResetting(true);
+      await userMgmtStore.resetPassword(targetUser.id, password);
+      setResetSuccessMessage(`Password akun @${targetUser.username} (${targetUser.name}) berhasil diperbarui!`);
+      setTimeout(() => {
+        setIsResetOpen(false);
+        setTargetUser(null);
+        setPassword('');
+        setConfirmPassword('');
+        setResetTouched(false);
+        setResetSuccessMessage(null);
+      }, 1400);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Gagal memperbarui kata sandi akun di server.');
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const handleDelete = (user: User) => {
@@ -664,6 +684,16 @@ export function UserTab({ users, roles }: UserTabProps) {
           if (selectedUserForProfile) {
             setSelectedUserForProfile(userMgmtStore.getUserById(selectedUserForProfile.id) || null);
           }
+        }}
+        onResetPassword={(u) => {
+          setSelectedUserForProfile(null);
+          setIsProfileOpen(false);
+          setTargetUser(u);
+          setPassword('');
+          setConfirmPassword('');
+          setErrorMessage('');
+          setResetSuccessMessage(null);
+          setIsResetOpen(true);
         }}
       />
 
@@ -1055,6 +1085,13 @@ export function UserTab({ users, roles }: UserTabProps) {
                 </Alert>
               )}
 
+              {resetSuccessMessage && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-xs font-semibold animate-in fade-in">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>{resetSuccessMessage}</span>
+                </div>
+              )}
+
               {/* Target User Identity Card */}
               {targetUser && (
                 <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-border/40 bg-muted/25 shadow-2xs">
@@ -1137,8 +1174,9 @@ export function UserTab({ users, roles }: UserTabProps) {
                 type="button"
                 variant="outline"
                 size="sm"
+                disabled={isResetting}
                 onClick={() => setIsResetOpen(false)}
-                className="rounded-xl h-9 px-4 text-xs font-medium border-border/50 hover:bg-muted/50"
+                className="rounded-xl h-9 px-4 text-xs font-medium border-border/50 hover:bg-muted/50 cursor-pointer"
               >
                 Batal
               </Button>
@@ -1146,10 +1184,20 @@ export function UserTab({ users, roles }: UserTabProps) {
                 type="submit"
                 variant="default"
                 size="sm"
-                className="rounded-xl h-9 px-4.5 gap-1.5 text-xs font-semibold shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+                disabled={isResetting || Boolean(resetSuccessMessage)}
+                className="rounded-xl h-9 px-4.5 gap-1.5 text-xs font-semibold shadow-sm hover:shadow-md transition-all active:scale-[0.98] cursor-pointer"
               >
-                <KeyRound className="h-3.5 w-3.5" />
-                <span>Perbarui Password</span>
+                {isResetting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="h-3.5 w-3.5" />
+                    <span>Perbarui Password</span>
+                  </>
+                )}
               </Button>
             </div>
           </form>

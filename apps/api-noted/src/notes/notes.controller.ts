@@ -153,6 +153,13 @@ export class NotesController {
     return await this.notesService.removeMember(kdJudul, accessId, req.user!);
   }
 
+  // --- Agregasi Dokumen Bukti Dukung lintas catatan ---
+  @Get('documents')
+  @UseGuards(JwtAuthGuard)
+  async getAllFiles(@Query() query: any, @Req() req: RequestWithUser) {
+    return await this.notesService.getAllFiles(query, req.user!);
+  }
+
   // --- Kelola Berkas Media Bukti Dukung (PDF & Foto) ---
   @Get(':kdJudul/files')
   @UseGuards(JwtAuthGuard)

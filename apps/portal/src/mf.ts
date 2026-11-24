@@ -51,28 +51,55 @@ try {
   }
 }
 
+const LOCAL_FALLBACKS: Record<string, () => Promise<any>> = {
+  NotedView: () => import('../../compUI/src/components/noted/NotedView'),
+  StandaloneQuestionnaire: () =>
+    import('../../compUI/src/components/noted/forms/StandaloneQuestionnairePage'),
+  StandaloneNotePage: () => import('../../compUI/src/components/noted/StandaloneNotePage'),
+  NotedFormsPage: () => import('../../compUI/src/components/noted/forms/NoteFormsPage'),
+  NotedFormResponsesPage: () =>
+    import('../../compUI/src/components/noted/forms/NoteFormResponsesPage'),
+  NotedDocumentsPage: () => import('../../compUI/src/components/noted/NoteDocumentsPage'),
+  App: () => import('../../compUI/src/App'),
+};
+
 export function lazyProvider<Props extends object = Record<string, unknown>>(
   alias: string,
   exposeName: string,
 ) {
   return lazy(async () => {
     try {
-      const mod = await loadRemote<{ default: ComponentType<Props> }>(
+      const mod = await loadRemote<{ default?: ComponentType<Props> }>(
         `${alias}/${exposeName}`,
       );
-      if (!mod || !mod.default) {
-        throw new Error(
-          `Provider "${alias}/${exposeName}" did not export a default component.`,
-        );
-      }
-      return { default: mod.default };
+      const Component = mod?.default || (mod as any)?.[exposeName];
+      if (Component) return { default: Component as ComponentType<Props> };
     } catch (err) {
-      console.error(
-        `[MFE Runtime] Failed to load remote component "${alias}/${exposeName}":`,
+      console.warn(
+        `[MFE Runtime] Remote "${alias}/${exposeName}" unavailable, trying local fallback:`,
         err,
       );
-      throw err;
     }
+
+    const localLoader = alias === 'compUI' ? LOCAL_FALLBACKS[exposeName] : undefined;
+    if (localLoader) {
+      try {
+        const localMod = await localLoader();
+        const LocalComponent =
+          localMod?.default ||
+          localMod?.[exposeName] ||
+          Object.values(localMod || {}).find((value) => typeof value === 'function');
+        if (LocalComponent) return { default: LocalComponent as ComponentType<Props> };
+        throw new Error(
+          `Local fallback for "${alias}/${exposeName}" loaded without component export. Keys: ${Object.keys(localMod || {}).join(',')} Types: ${Object.keys(localMod || {}).map((k) => `${k}:${typeof (localMod as any)[k]}`).join(',')}`,
+        );
+      } catch (localErr) {
+        console.error(`[MFE Runtime] Local fallback failed for "${alias}/${exposeName}":`, localErr);
+        throw localErr;
+      }
+    }
+
+    throw new Error(`Remote module "${alias}/${exposeName}" could not be loaded.`);
   });
 }
 

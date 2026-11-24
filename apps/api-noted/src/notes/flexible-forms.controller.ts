@@ -19,6 +19,9 @@ import {
   UpdateFormAccessDto,
   SubmitFormValueDto,
   UpdateFormValueDto,
+  UploadFormFileDto,
+  QueryFormDto,
+  QueryFormDataDto,
 } from './dto/flexible-form.dto';
 import { JwtAuthGuard, RequestWithUser } from '../auth/jwt-auth.guard';
 
@@ -30,9 +33,24 @@ export class FlexibleFormsController {
   @UseGuards(JwtAuthGuard)
   async getForms(
     @Param('kdJudul') kdJudul: string,
+    @Query() query: QueryFormDto,
     @Req() req: RequestWithUser
   ) {
-    return await this.formsService.getForms(kdJudul, req.user!);
+    return await this.formsService.getForms(kdJudul, req.user!, query);
+  }
+
+  // Upload lampiran form (terpisah): simpan berkas ke disk, balikkan URL + metadata.
+  // Klien hanya menyimpan URL tersebut pada jawaban form (answers).
+  @Post(':formId/upload')
+  @UseGuards(JwtAuthGuard)
+  async uploadFormFile(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Body() dto: UploadFormFileDto,
+    @Req() req: RequestWithUser
+  ) {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    return await this.formsService.saveFormFile(kdJudul, formId, dto, req.user!, origin);
   }
 
   @Post()
@@ -93,7 +111,7 @@ export class FlexibleFormsController {
   async getFormDataFlat(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
-    @Query() query: any,
+    @Query() query: QueryFormDataDto,
     @Req() req: RequestWithUser
   ) {
     return await this.formsService.getFormDataFlat(kdJudul, formId, query, req.user);
@@ -165,6 +183,16 @@ export class PublicFormsController {
   @Get(':shareSlug')
   async getPublicForm(@Param('shareSlug') shareSlug: string) {
     return await this.formsService.getPublicFormBySlug(shareSlug);
+  }
+
+  @Post(':shareSlug/upload')
+  async uploadPublicFormFile(
+    @Param('shareSlug') shareSlug: string,
+    @Body() dto: UploadFormFileDto,
+    @Req() req: any
+  ) {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    return await this.formsService.savePublicFormFile(shareSlug, dto, origin);
   }
 
   @Post(':shareSlug/values')

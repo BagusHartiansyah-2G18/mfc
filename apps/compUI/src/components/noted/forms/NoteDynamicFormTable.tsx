@@ -11,6 +11,10 @@ import {
   BarChart2,
   Printer,
   PenTool,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Paperclip,
 } from 'lucide-react';
 import {
   type DataForm,
@@ -19,6 +23,7 @@ import {
 import { authFetch } from '@org/auth';
 import { FormAnalyticsModal } from './components/FormAnalyticsModal';
 import { FormReceiptPrintModal } from './components/FormReceiptPrintModal';
+import { FilePreviewModal, type PreviewFile } from './components/FilePreviewModal';
 
 interface NoteDynamicFormTableProps {
   form: DataForm;
@@ -35,20 +40,46 @@ export function NoteDynamicFormTable({
 }: NoteDynamicFormTableProps) {
   const [flatData, setFlatData] = useState<FlatFormProjection | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<Record<string, any> | null>(null);
+  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
 
   // Next-Level Modals: Visual Analytics & PDF Receipt Print
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchFlatData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const q = search ? `?format=flat&search=${encodeURIComponent(search)}` : '?format=flat';
-      const res = await authFetch(`${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/data${q}`);
+      const params = new URLSearchParams({
+        format: 'flat',
+        page: String(page),
+        limit: String(limit),
+      });
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      if (statusFilter) params.set('status', statusFilter);
+      if (fromDate) params.set('from', fromDate);
+      if (toDate) params.set('to', toDate);
+
+      const res = await authFetch(
+        `${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/data?${params.toString()}`
+      );
       const json = await res.json();
       if (json.success) {
         setFlatData(json);
@@ -61,7 +92,7 @@ export function NoteDynamicFormTable({
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl, kdJudul, form.id, search]);
+  }, [apiBaseUrl, kdJudul, form.id, debouncedSearch, statusFilter, fromDate, toDate, page, limit]);
 
   useEffect(() => {
     fetchFlatData();
@@ -96,6 +127,12 @@ export function NoteDynamicFormTable({
 
   const columns = flatData?.columns || [];
   const rows = flatData?.rows || [];
+  const totalResponses = flatData?.total ?? flatData?.totalResponses ?? rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalResponses / limit));
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return (
     <div className="space-y-4">
@@ -164,6 +201,81 @@ export function NoteDynamicFormTable({
         </div>
       </div>
 
+      {/* Filter & Pagination Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-end gap-2 rounded-xl border border-border/70 bg-muted/10 p-2.5">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground shrink-0">
+          <Filter className="h-3.5 w-3.5" />
+          <span>Filter</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1">
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+            className="h-8 px-2 text-xs rounded-lg border border-border bg-background text-foreground"
+          >
+            <option value="">Semua Status</option>
+            <option value="DRAFT">Draft</option>
+            <option value="SUBMITTED">Terkirim</option>
+            <option value="VERIFIED">Terverifikasi</option>
+            <option value="REJECTED">Ditolak</option>
+          </select>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              setPage(1);
+            }}
+            className="h-8 px-2 text-xs rounded-lg border border-border bg-background text-foreground"
+            title="Dari tanggal"
+          />
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => {
+              setToDate(e.target.value);
+              setPage(1);
+            }}
+            className="h-8 px-2 text-xs rounded-lg border border-border bg-background text-foreground"
+            title="Sampai tanggal"
+          />
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+            className="h-8 px-2 text-xs rounded-lg border border-border bg-background text-foreground"
+          >
+            <option value={5}>5 / halaman</option>
+            <option value={10}>10 / halaman</option>
+            <option value={25}>25 / halaman</option>
+            <option value={50}>50 / halaman</option>
+            <option value={100}>100 / halaman</option>
+          </select>
+        </div>
+        {(statusFilter || fromDate || toDate || search) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('');
+              setFromDate('');
+              setToDate('');
+              setPage(1);
+            }}
+            className="h-8 text-xs text-muted-foreground"
+          >
+            Reset
+          </Button>
+        )}
+      </div>
+
       {error && (
         <div className="p-3 text-xs rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20">
           {error}
@@ -196,7 +308,7 @@ export function NoteDynamicFormTable({
                 rows.map((row, idx) => (
                   <tr key={row.id || idx} className="hover:bg-muted/30 transition-colors">
                     <td className="py-2.5 px-3 text-center text-muted-foreground font-mono text-[11px]">
-                      {idx + 1}
+                      {(page - 1) * limit + idx + 1}
                     </td>
 
                     {columns.map((c) => {
@@ -228,6 +340,37 @@ export function NoteDynamicFormTable({
                         );
                       }
 
+                      // Lampiran berkas (objek { fileName, fileUrl, mimeType }) atau URL lama
+                      const fileVal =
+                        val && typeof val === 'object' && (val.fileUrl || val.url)
+                          ? {
+                              fileName: val.fileName || 'Lampiran',
+                              fileUrl: val.fileUrl || val.url,
+                              mimeType: val.mimeType,
+                              fileType: val.fileType,
+                              fileSizeBytes: val.fileSizeBytes,
+                            }
+                          : null;
+
+                      if (fileVal) {
+                        return (
+                          <td key={c.key} className="py-2.5 px-3 max-w-xs">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" />
+                              <span className="truncate text-[11px] font-medium">{fileVal.fileName}</span>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewFile(fileVal)}
+                                className="p-1 rounded-md hover:bg-primary/10 text-primary shrink-0 cursor-pointer"
+                                title="Pratinjau berkas"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        );
+                      }
+
                       // Signature preview in table
                       if (typeof val === 'string' && val.startsWith('data:image/png;base64,')) {
                         return (
@@ -240,22 +383,23 @@ export function NoteDynamicFormTable({
                       }
 
                       return (
-                        <td key={c.key} className="py-2.5 px-3 text-foreground line-clamp-1 max-w-xs">
-                          {Array.isArray(val)
-                            ? `${val.length} item`
-                            : typeof val === 'object' && val !== null
-                            ? val.url ? (
-                                <a
-                                  href={val.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-primary underline flex items-center gap-1"
-                                >
-                                  <span>{val.fileName || 'Berkas'}</span>
-                                  <ExternalLink className="h-3 w-3" />
-                                </a>
-                              ) : JSON.stringify(val)
-                            : String(val ?? '-')}
+                        <td key={c.key} className="py-2.5 px-3 text-foreground max-w-xs">
+                          <div className="truncate" title={typeof val === 'string' || typeof val === 'number' ? String(val) : undefined}>
+                            {Array.isArray(val)
+                              ? `${val.length} item`
+                              : typeof val === 'object' && val !== null
+                              ? val.url ? (
+                                  <a
+                                    href={val.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-primary underline underline-offset-2 inline-flex items-center gap-1"
+                                  >
+                                    <ExternalLink className="h-3 w-3" /> Link
+                                  </a>
+                                ) : JSON.stringify(val)
+                              : String(val ?? '-')}
+                          </div>
                         </td>
                       );
                     })}
@@ -287,6 +431,45 @@ export function NoteDynamicFormTable({
           </table>
         </div>
       </div>
+
+      {/* Pagination Footer */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span>
+          Menampilkan <strong className="text-foreground">{rows.length}</strong> dari{' '}
+          <strong className="text-foreground">{totalResponses}</strong> respon
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={page <= 1 || isLoading}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="h-7 px-2 text-xs gap-1"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+          </Button>
+          <span className="px-2 font-semibold text-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages || isLoading}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className="h-7 px-2 text-xs gap-1"
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      <FilePreviewModal
+        file={previewFile}
+        isOpen={Boolean(previewFile)}
+        onClose={() => setPreviewFile(null)}
+      />
 
       {/* Response Detail Inspector Modal */}
       {selectedRow && (
@@ -341,6 +524,42 @@ export function NoteDynamicFormTable({
                   .filter((c) => !['responderName', 'responderEmail', 'originHost', 'status', 'createdAt'].includes(c.key))
                   .map((c) => {
                     const cellVal = selectedRow[c.key];
+
+                    const detailFile =
+                      cellVal && typeof cellVal === 'object' && (cellVal.fileUrl || cellVal.url)
+                        ? {
+                            fileName: cellVal.fileName || 'Lampiran',
+                            fileUrl: cellVal.fileUrl || cellVal.url,
+                            mimeType: cellVal.mimeType,
+                            fileType: cellVal.fileType,
+                            fileSizeBytes: cellVal.fileSizeBytes,
+                          }
+                        : null;
+
+                    if (detailFile) {
+                      return (
+                        <div key={c.key} className="p-3 rounded-xl border border-border/60 bg-muted/10 space-y-2">
+                          <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
+                            <Paperclip className="h-3 w-3 text-primary" />
+                            <span>{c.label}</span>
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-foreground truncate flex-1">
+                              {detailFile.fileName}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setPreviewFile(detailFile)}
+                              className="h-7 text-xs gap-1"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> Lihat
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    }
 
                     // Check if signature
                     if (typeof cellVal === 'string' && cellVal.startsWith('data:image/png;base64,')) {

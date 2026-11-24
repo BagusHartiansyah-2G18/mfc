@@ -109,3 +109,29 @@ export interface UpdateFormValueDto {
   status?: 'DRAFT' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
   verifierNotes?: string;
 }
+
+export interface UploadFormFileDto {
+  fileName: string;
+  mimeType?: string;
+  dataBase64: string;
+  fieldKey?: string;
+}
+
+export interface QueryFormDto {
+  page?: string | number;
+  limit?: string | number;
+  search?: string;
+  sharingMode?: 'PUBLIC' | 'KHUSUS' | 'PRIVATE';
+  isLocked?: string | boolean;
+  sort?: string;
+}
+
+export interface QueryFormDataDto {
+  format?: string;
+  search?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  page?: string | number;
+  limit?: string | number;
+}

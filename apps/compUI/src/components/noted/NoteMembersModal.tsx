@@ -198,14 +198,14 @@ export function NoteMembersModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-2xl">
+        <DialogHeader className="p-4 border-b border-border/80 bg-muted/20">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
               <Users className="h-5 w-5" />
             </div>
-            <div>
-              <DialogTitle className="text-base font-bold">
+            <div className="min-w-0">
+              <DialogTitle className="text-base font-bold truncate">
                 Kolaborator & Tim Catatan #{note.kdJudul}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground line-clamp-1">
@@ -216,13 +216,13 @@ export function NoteMembersModal({
         </DialogHeader>
 
         {error && (
-          <div className="flex items-center gap-2 p-3 text-xs rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20">
+          <div className="mx-4 mt-3 flex items-center gap-2 p-2.5 text-xs rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="space-y-5 py-2">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Form Undangan Anggota Baru */}
           <form onSubmit={handleAddMember} className="p-4 rounded-xl border border-border/80 bg-muted/30 space-y-3">
             <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
@@ -379,8 +379,8 @@ export function NoteMembersModal({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="h-8 text-xs">
+        <DialogFooter className="p-3 border-t border-border/80 bg-muted/20 flex justify-end">
+          <Button variant="outline" onClick={onClose} className="h-8 text-xs cursor-pointer">
             Tutup
           </Button>
         </DialogFooter>

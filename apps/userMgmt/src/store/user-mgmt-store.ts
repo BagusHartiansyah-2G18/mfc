@@ -611,6 +611,13 @@ class UserManagementStore {
     return true;
   }
 
+  async resetPassword(id: string, newPassword: string): Promise<void> {
+    if (this.isConnectedToBackend) {
+      await userMgmtApi.resetPassword(id, newPassword);
+    }
+    notify();
+  }
+
   // --- Roles ---
   getRoles(): Role[] {
     return [...this.roles];

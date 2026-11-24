@@ -1,5 +1,5 @@
 import { Component, Suspense, useEffect, useState, useMemo, type ReactNode } from 'react';
-import { Route, Routes, Navigate, Link, useNavigate } from 'react-router-dom';
+import { Route, Routes, Navigate, Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AppShell,
   PublicLayout,
@@ -136,7 +136,26 @@ class ProviderBoundary extends Component<
 
 const CompUIApp = lazyProvider<{ basePath?: string }>('compUI', 'App');
 const UserMgmtApp = lazyProvider<{ basePath?: string }>('userMgmt', 'App');
-const RemoteNotedView = lazyProvider<{ apiBaseUrl?: string }>('compUI', 'NotedView');
+const RemoteNotedView = lazyProvider<{
+  apiBaseUrl?: string;
+  onNavigate?: (path: string) => void;
+}>('compUI', 'NotedView');
+const RemoteNotedFormsPage = lazyProvider<{
+  kdJudul?: string;
+  apiBaseUrl?: string;
+  onNavigate?: (path: string) => void;
+}>('compUI', 'NotedFormsPage');
+const RemoteNotedFormResponsesPage = lazyProvider<{
+  kdJudul?: string;
+  formId?: string;
+  apiBaseUrl?: string;
+  onNavigate?: (path: string) => void;
+}>('compUI', 'NotedFormResponsesPage');
+const RemoteNotedDocumentsPage = lazyProvider<{
+  kdJudul?: string;
+  apiBaseUrl?: string;
+  onNavigate?: (path: string) => void;
+}>('compUI', 'NotedDocumentsPage');
 const RemoteStandaloneQuestionnaire = lazyProvider<{ shareSlug?: string; apiBaseUrl?: string }>('compUI', 'StandaloneQuestionnaire');
 const RemoteStandaloneNotePage = lazyProvider<{ kdJudul?: string; apiBaseUrl?: string }>('compUI', 'StandaloneNotePage');
 
@@ -309,8 +328,10 @@ function NotedRouteHandler({
   brandName: string;
 }) {
   const { session } = useAuth();
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const hasViewParam = Boolean(searchParams.get('viewNote') || searchParams.get('note') || searchParams.get('kdJudul'));
+  const kdJudulFromParam = searchParams.get('viewNote') || searchParams.get('note') || searchParams.get('kdJudul');
 
   // Jika pengunjung belum login dan mengakses catatan spesifik (misal ?viewNote=1),
   // sajikan langsung Halaman Mandiri Catatan Bebas Login (Mode Publik) tanpa me-redirect ke login!
@@ -329,7 +350,75 @@ function NotedRouteHandler({
         <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
           <ProviderBoundary name="compUI">
             <div className="p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
-              <RemoteNotedView apiBaseUrl="http://localhost:3002/api" />
+              <RemoteNotedView
+                apiBaseUrl="http://localhost:3002/api"
+                onNavigate={(path) => navigate(path === '/' ? '/noted' : `/noted${path}`)}
+              />
+            </div>
+          </ProviderBoundary>
+        </AppShell>
+      ) : (
+        <div className="flex h-screen gap-4 p-4">
+          <Skeleton className="h-full w-64" />
+          <div className="flex-1 space-y-4">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
+      )}
+    </RouteGuard>
+  );
+}
+
+type NotedWorkspaceKind = 'forms' | 'responses' | 'documents';
+
+function NotedWorkspaceRoute({
+  kind,
+  effectiveMenu,
+  brandName,
+}: {
+  kind: NotedWorkspaceKind;
+  effectiveMenu: FeatureMenu | null;
+  brandName: string;
+}) {
+  const navigate = useNavigate();
+  const { session } = useAuth();
+  const { kdJudul, formId } = useParams();
+  const authToken = session?.token || 'dev-bypass-token-2026';
+  const apiBaseUrl = 'http://localhost:3002/api';
+  const onNavigate = (path: string) => {
+    const target = path === '/' ? '/noted' : path.startsWith('/noted') ? path : `/noted${path}`;
+    navigate(target);
+  };
+
+  return (
+    <RouteGuard>
+      {effectiveMenu ? (
+        <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
+          <ProviderBoundary name="compUI">
+            <div className="p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
+              {kind === 'forms' && kdJudul ? (
+                <RemoteNotedFormsPage
+                  kdJudul={kdJudul}
+                  apiBaseUrl={apiBaseUrl}
+                  onNavigate={onNavigate}
+                />
+              ) : kind === 'responses' && kdJudul && formId ? (
+                <RemoteNotedFormResponsesPage
+                  kdJudul={kdJudul}
+                  formId={formId}
+                  apiBaseUrl={apiBaseUrl}
+                  onNavigate={onNavigate}
+                />
+              ) : kind === 'documents' ? (
+                <RemoteNotedDocumentsPage
+                  kdJudul={kdJudul}
+                  apiBaseUrl={apiBaseUrl}
+                  onNavigate={onNavigate}
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground">Parameter route tidak lengkap.</div>
+              )}
             </div>
           </ProviderBoundary>
         </AppShell>
@@ -515,6 +604,18 @@ export function App() {
       />
 
       {/* 5. Halaman Aplikasi Noted: Mendukung Mode Publik (tanpa login jika ada ?viewNote=1) & Mode Dashboard Terintegrasi */}
+      <Route
+        path="/noted/forms/:kdJudul"
+        element={<NotedWorkspaceRoute kind="forms" effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+      <Route
+        path="/noted/forms/:kdJudul/:formId/responses"
+        element={<NotedWorkspaceRoute kind="responses" effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+      <Route
+        path="/noted/documents"
+        element={<NotedWorkspaceRoute kind="documents" effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
       <Route
         path="/noted"
         element={<NotedRouteHandler effectiveMenu={effectiveMenu} brandName={brandName} />}

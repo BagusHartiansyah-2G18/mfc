@@ -26,6 +26,7 @@ import {
   RefreshCw,
   FolderTree,
   Globe,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@org/ui';
 import { authFetch } from '@org/auth';
@@ -40,6 +41,7 @@ interface NoteReaderModalProps {
   onSelectChapter?: (note: JudulNote) => void;
   onSwitchToEdit?: (note: JudulNote) => void;
   onOpenSupportingDrawer?: (note: JudulNote) => void;
+  onManageMedia?: (note: JudulNote) => void;
   onCreateSubNote?: (parentNote: JudulNote) => void;
   apiBaseUrl?: string;
   authToken?: string;
@@ -54,6 +56,7 @@ export function NoteReaderModal({
   onSelectChapter,
   onSwitchToEdit,
   onOpenSupportingDrawer,
+  onManageMedia,
   onCreateSubNote,
   apiBaseUrl = 'http://localhost:3002/api',
   authToken,
@@ -349,10 +352,10 @@ export function NoteReaderModal({
         {/* ========================================================= */}
         {/* TOP BAR / READER HEADER                                   */}
         {/* ========================================================= */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border/80 bg-card/95 backdrop-blur-md px-4 py-3 shrink-0 print:hidden">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border/80 bg-card/95 backdrop-blur-md px-4 py-2.5 shrink-0 print:hidden gap-3 flex-wrap">
           {/* Left: Code, Stage, & Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <BookOpen className="h-4 w-4" />
               </span>
@@ -379,70 +382,33 @@ export function NoteReaderModal({
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsSidebarOpen((prev) => !prev)}
-              className="h-8 text-xs gap-1 hidden md:flex cursor-pointer"
-              title="Buka/Tutup Navigasi Bab & Turunan"
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span className="hidden lg:inline">{isSidebarOpen ? 'Sembunyikan Panel' : 'Navigasi Panel'}</span>
-            </Button>
+          <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+            {/* Primary Task Tools */}
+            {onOpenSupportingDrawer && activeNote && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenSupportingDrawer(activeNote)}
+                className="h-8 text-xs gap-1.5 cursor-pointer text-indigo-600 dark:text-indigo-400 border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/15"
+                title="Buka Form Pendukung Dinamis"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Form Pendukung</span>
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyLink}
-              className="h-8 text-xs gap-1 cursor-pointer"
-              title="Salin Tautan Langsung ke Catatan Ini"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                  <span className="text-emerald-600 font-semibold">Tersalin!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Salin Link</span>
-                </>
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isTogglingSharing}
-              onClick={handleTogglePublicSharing}
-              className={`h-8 text-xs gap-1.5 cursor-pointer transition-all ${
-                activeNote.sharingMode === 'PUBLIC'
-                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
-                  : 'text-muted-foreground hover:text-emerald-600 hover:border-emerald-500/30'
-              }`}
-              title={
-                activeNote.sharingMode === 'PUBLIC'
-                  ? 'Catatan saat ini tampil di Katalog Publik. Klik untuk jadikan Privat kembali.'
-                  : 'Jadikan catatan ini publik agar tampil di tab Katalog Publik dan bisa diakses siapapun.'
-              }
-            >
-              <Globe className={`h-3.5 w-3.5 ${activeNote.sharingMode === 'PUBLIC' ? 'text-emerald-600' : ''}`} />
-              <span className="hidden sm:inline">
-                {activeNote.sharingMode === 'PUBLIC' ? 'Publik (Aktif)' : 'Jadikan di Katalog Publik'}
-              </span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="h-8 text-xs gap-1 cursor-pointer"
-              title="Cetak Lembar Dokumen Resmi"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Cetak</span>
-            </Button>
+            {onManageMedia && activeNote && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onManageMedia(activeNote)}
+                className="h-8 text-xs gap-1.5 cursor-pointer text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15"
+                title="Buka Form Upload & Kelola Berkas"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Form Upload</span>
+              </Button>
+            )}
 
             {onSwitchToEdit && (
               <Button
@@ -460,10 +426,65 @@ export function NoteReaderModal({
               </Button>
             )}
 
+            <div className="h-4 w-[1px] bg-border mx-0.5 hidden sm:block" />
+
+            {/* Secondary Utility Controls */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isTogglingSharing}
+              onClick={handleTogglePublicSharing}
+              className={`h-8 px-2.5 text-xs gap-1.5 cursor-pointer transition-all ${
+                activeNote.sharingMode === 'PUBLIC'
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
+                  : 'text-muted-foreground hover:text-emerald-600 hover:border-emerald-500/30'
+              }`}
+              title={
+                activeNote.sharingMode === 'PUBLIC'
+                  ? 'Catatan saat ini tampil di Katalog Publik. Klik untuk jadikan Privat kembali.'
+                  : 'Jadikan catatan ini publik agar tampil di tab Katalog Publik dan bisa diakses siapapun.'
+              }
+            >
+              <Globe className={`h-3.5 w-3.5 ${activeNote.sharingMode === 'PUBLIC' ? 'text-emerald-600' : ''}`} />
+              <span className="hidden md:inline">
+                {activeNote.sharingMode === 'PUBLIC' ? 'Publik' : 'Jadikan Publik'}
+              </span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleCopyLink}
+              className="h-8 w-8 text-xs cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Salin Tautan Langsung ke Catatan Ini"
+            >
+              {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePrint}
+              className="h-8 w-8 text-xs cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Cetak Lembar Dokumen Resmi"
+            >
+              <Printer className="h-3.5 w-3.5" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              className="h-8 w-8 text-xs hidden md:flex cursor-pointer text-muted-foreground hover:text-foreground"
+              title={isSidebarOpen ? 'Sembunyikan Panel Bab' : 'Buka Panel Bab'}
+            >
+              <Layers className="h-3.5 w-3.5" />
+            </Button>
+
             <button
               type="button"
               onClick={onClose}
-              className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              className="ml-0.5 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
               title="Tutup (ESC)"
             >
               <X className="h-4 w-4" />

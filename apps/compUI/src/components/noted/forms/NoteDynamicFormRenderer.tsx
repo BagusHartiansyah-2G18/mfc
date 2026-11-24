@@ -19,6 +19,7 @@ import { type DataForm, type FormFieldDefinition } from '../types';
 import { authFetch } from '@org/auth';
 import { SignatureCanvasPad } from './components/SignatureCanvasPad';
 import { RepeaterTableField } from './components/RepeaterTableField';
+import { FormFileUploadField } from './components/FormFileUploadField';
 
 interface NoteDynamicFormRendererProps {
   form: DataForm;
@@ -60,6 +61,8 @@ export function NoteDynamicFormRenderer({
   // Local Storage Draft Key
   const draftKey = `noted_form_draft_${form.id}`;
   const [hasDraftNotice, setHasDraftNotice] = useState(false);
+
+
 
   // Check if Form is Expired or Quota Exceeded
   const isExpired = form.closeAt ? new Date(form.closeAt) < new Date() : false;
@@ -659,8 +662,23 @@ export function NoteDynamicFormRenderer({
                     <p className="text-[11px] text-muted-foreground">{field.helperText}</p>
                   )}
                 </div>
+              ) : field.type === 'file' ? (
+                /* 10. Lampiran Berkas (unggah terpisah, simpan URL) */
+                <FormFileUploadField
+                  label={field.label}
+                  helperText={field.helperText}
+                  required={field.required}
+                  value={answers[field.key]}
+                  onChange={(val) => handleFieldChange(field.key, val)}
+                  uploadEndpoint={
+                    isPublicMode && form.shareSlug
+                      ? `${apiBaseUrl}/public/forms/${form.shareSlug}/upload`
+                      : `${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/upload`
+                  }
+                  skipAuth={Boolean(isPublicMode && form.shareSlug)}
+                />
               ) : (
-                /* 10. Default Text / Number / Date / File / Range / Color */
+                /* 11. Default Text / Number / Date / Range / Color */
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground">
                     {field.label} {field.required && <span className="text-rose-500">*</span>}
@@ -756,6 +774,7 @@ export function NoteDynamicFormRenderer({
           )}
         </div>
       </div>
+
     </form>
   );
 }

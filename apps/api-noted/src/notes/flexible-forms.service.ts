@@ -11,16 +11,42 @@ import {
   UpdateFormAccessDto,
   SubmitFormValueDto,
   UpdateFormValueDto,
+  QueryFormDto,
+  UploadFormFileDto,
 } from './dto/flexible-form.dto';
 import { AuthenticatedUser } from '../auth/jwt-auth.guard';
 import * as crypto from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import { join, dirname } from 'node:path';
+
+const UPLOAD_ROOT =
+  process.env.NOTED_UPLOAD_DIR || join(process.cwd(), 'uploads', 'noted');
+const MIME_EXTENSION: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/svg+xml': '.svg',
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'text/csv': '.csv',
+  'text/plain': '.txt',
+};
 
 @Injectable()
 export class FlexibleFormsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // 1. Ambil seluruh form kustom milik catatan
-  async getForms(kdJudul: string, user: AuthenticatedUser) {
+  async getForms(
+    kdJudul: string,
+    user: AuthenticatedUser,
+    query: QueryFormDto = {}
+  ) {
     const note = await this.prisma.judulNote.findFirst({
       where: { kdJudul },
     });
@@ -675,6 +701,91 @@ export class FlexibleFormsService {
       ...result,
       receiptCode,
       submittedAt: new Date().toISOString(),
+    };
+  }
+
+  // 8b. Upload lampiran form (terpisah dari submit). Hanya URL + metadata yang disimpan klien.
+  async saveFormFile(
+    kdJudul: string,
+    formId: string,
+    dto: UploadFormFileDto,
+    user: AuthenticatedUser,
+    origin: string
+  ) {
+    const form = await this.prisma.dataForm.findFirst({
+      where: { id: formId, kdNote: kdJudul },
+    });
+    if (!form) {
+      throw new NotFoundException(`Formulir tidak ditemukan.`);
+    }
+
+    // Validasi tipe file dan ekstensi
+    const mime = dto.mimeType || 'application/octet-stream';
+    const ext = MIME_EXTENSION[mime] || '.bin';
+    const safeFileName = `${crypto.randomUUID()}${ext}`;
+    const uploadPath = join(UPLOAD_ROOT, kdJudul, 'forms', safeFileName);
+
+    // Pastikan direktori upload ada
+    await fs.mkdir(dirname(uploadPath), { recursive: true });
+
+    // Decode base64 dan tulis ke disk
+    const base64Data = dto.dataBase64.replace(/^data:[^,]+/, '');
+    await fs.writeFile(uploadPath, base64Data, 'base64');
+
+    // Kembalikan URL publik dan metadata
+    const fileUrl = `/uploads/noted/${kdJudul}/forms/${safeFileName}`;
+    return {
+      success: true,
+      message: 'Lampiran berhasil diunggah.',
+      data: {
+        fileName: dto.fileName,
+        mimeType: dto.mimeType,
+        fileUrl,
+        fieldKey: dto.fieldKey,
+        storedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  // 8c. Upload lampiran form publik (tanpa autentikasi)
+  async savePublicFormFile(
+    shareSlug: string,
+    dto: UploadFormFileDto,
+    origin: string
+  ) {
+    // Cari form berdasarkan shareSlug
+    const form = await this.prisma.dataForm.findFirst({
+      where: { shareSlug },
+    });
+    if (!form) {
+      throw new NotFoundException('Formulir publik tidak ditemukan.');
+    }
+
+    // Validasi tipe file dan ekstensi
+    const mime = dto.mimeType || 'application/octet-stream';
+    const ext = MIME_EXTENSION[mime] || '.bin';
+    const safeFileName = `${crypto.randomUUID()}${ext}`;
+    const uploadPath = join(UPLOAD_ROOT, 'public', 'forms', safeFileName);
+
+    // Pastikan direktori upload ada
+    await fs.mkdir(dirname(uploadPath), { recursive: true });
+
+    // Decode base64 dan tulis ke disk
+    const base64Data = dto.dataBase64.replace(/^data:[^,]+/, '');
+    await fs.writeFile(uploadPath, base64Data, 'base64');
+
+    // Kembalikan URL publik dan metadata
+    const fileUrl = `/uploads/noted/public/forms/${safeFileName}`;
+    return {
+      success: true,
+      message: 'Lampiran publik berhasil diunggah.',
+      data: {
+        fileName: dto.fileName,
+        mimeType: dto.mimeType,
+        fileUrl,
+        fieldKey: dto.fieldKey,
+        storedAt: new Date().toISOString(),
+      },
     };
   }
 }

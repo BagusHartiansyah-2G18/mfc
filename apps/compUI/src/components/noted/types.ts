@@ -274,6 +274,9 @@ export interface FlatFormProjection {
   totalResponses: number;
   columns: FlatFormColumn[];
   rows: Record<string, any>[];
+  total?: number;
+  page?: number;
+  limit?: number;
 }
 
 export interface NoteBreadcrumb {

@@ -35,6 +35,9 @@
   "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
+      "path": "../compUI/tsconfig.app.json"
+    },
+    {
       "path": "../../packages/shared/auth/tsconfig.lib.json"
     },
     {

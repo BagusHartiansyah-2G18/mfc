@@ -54,6 +54,9 @@ test-output
 .nx/migrate-runs
 .vitest
 
+# Uploaded evidence files (served statically by api-noted)
+/uploads
+
 # Environment variables
 .env
 .env.local

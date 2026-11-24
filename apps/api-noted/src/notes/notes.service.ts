@@ -978,6 +978,50 @@ export class NotesService {
     return { success: true, message: 'Berkas berhasil dilampirkan.', data: newFile };
   }
 
+  // 8b. Agregasi seluruh berkas bukti dukung lintas catatan (untuk halaman Dokumen)
+  async getAllFiles(query: any, user: AuthenticatedUser) {
+    const memberId = user.kdMember;
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = query.limit
+      ? Math.min(200, Math.max(1, Number(query.limit)))
+      : 25;
+
+    const where: any = { kdMember: memberId };
+    if (query.kdJudul) where.kdJudul = query.kdJudul;
+    if (query.category) where.category = query.category;
+    if (query.fileType) where.fileType = query.fileType;
+    if (query.search && String(query.search).trim()) {
+      const q = String(query.search).trim();
+      where.OR = [
+        { fileName: { contains: q } },
+        { keterangan: { contains: q } },
+        { kdJudul: { contains: q } },
+      ];
+    }
+
+    const [total, files] = await Promise.all([
+      this.prisma.judulFile.count({ where }),
+      this.prisma.judulFile.findMany({
+        where,
+        include: {
+          note: { select: { judul: true, kdJudul: true, tingkat: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      success: true,
+      data: files,
+      count: files.length,
+      total,
+      page,
+      limit,
+    };
+  }
+
   async removeFile(kdJudul: string, fileId: string, user: AuthenticatedUser) {
     const memberId = user.kdMember;
 

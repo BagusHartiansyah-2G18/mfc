@@ -807,6 +807,16 @@ export function NoteSupportingDrawer({
                     </div>
                   </div>
 
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">URL Berkas Eksternal / Cloud (Opsional)</label>
+                    <Input
+                      value={fileUrl}
+                      onChange={(e) => setFileUrl(e.target.value)}
+                      placeholder="https://... (Kosongkan jika menggunakan URL simulasi)"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+
                   <div className="flex justify-end pt-1">
                     <Button
                       type="submit"

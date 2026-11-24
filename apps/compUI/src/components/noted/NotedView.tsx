@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Users,
   FileText,
+  Upload,
   SlidersHorizontal,
   Globe,
   UserPlus,
@@ -35,15 +36,16 @@ import { NoteFormModal } from './NoteFormModal';
 import { NoteExportModal } from './NoteExportModal';
 import { NoteMembersModal } from './NoteMembersModal';
 import { NoteMediaModal } from './NoteMediaModal';
-import { NoteFlexibleFormsDrawer } from './forms/NoteFlexibleFormsDrawer';
+
 import { FriendsManagerModal } from './forms/FriendsManagerModal';
 import { NoteReaderModal } from './NoteReaderModal';
 
 export interface NotedViewProps {
   apiBaseUrl?: string;
+  onNavigate?: (path: string) => void;
 }
 
-export function NotedView({ apiBaseUrl }: NotedViewProps) {
+export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
   const { session, isDevBypass } = useAuth();
 
   const baseUrl = (
@@ -86,8 +88,7 @@ export function NotedView({ apiBaseUrl }: NotedViewProps) {
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
 
   // New Slide-Over Supporting Forms Drawer (Enterprise Flexible Forms Hub)
-  const [supportingDrawerNote, setSupportingDrawerNote] = useState<JudulNote | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
 
   // Soft-Delete Confirm Dialog State
   const [deleteConfirmNote, setDeleteConfirmNote] = useState<JudulNote | null>(null);
@@ -235,6 +236,21 @@ export function NotedView({ apiBaseUrl }: NotedViewProps) {
     fetchSharedNotes();
     fetchPublicNotes();
   }, [fetchRootNotes, fetchSharedNotes, fetchPublicNotes]);
+
+  // Deep-link dari navigasi Workspace: ?panel=friend atau ?tab=publikasi
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('panel') === 'friend') {
+        setIsFriendsModalOpen(true);
+      }
+      if (params.get('tab') === 'publikasi') {
+        setMainTab('PUBLIC_CATALOG');
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Navigation: Go back to Root
   const handleGoRoot = () => {
@@ -438,8 +454,12 @@ export function NotedView({ apiBaseUrl }: NotedViewProps) {
   };
 
   const handleOpenSupportingDrawer = (note: JudulNote) => {
-    setSupportingDrawerNote(note);
-    setIsDrawerOpen(true);
+    const path = `/forms/${encodeURIComponent(note.kdJudul)}`;
+    if (onNavigate) {
+      onNavigate(path);
+    } else {
+      window.location.href = path;
+    }
   };
 
   const handleRefreshCurrentView = () => {
@@ -705,10 +725,10 @@ export function NotedView({ apiBaseUrl }: NotedViewProps) {
                   size="sm"
                   onClick={() => handleOpenMediaModal(selectedParent)}
                   className="h-7 text-xs gap-1 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer"
-                  title="Mode Read PDF & Berkas Media"
+                  title="Form Upload & Berkas Media"
                 >
-                  <FileText className="h-3.5 w-3.5" />
-                  <span>PDF & Media</span>
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Form Upload</span>
                 </Button>
 
                 <Button
@@ -1074,19 +1094,6 @@ export function NotedView({ apiBaseUrl }: NotedViewProps) {
         authToken={session?.token || 'dev-bypass-token-2026'}
       />
 
-      {/* Slide-over Supporting Forms Drawer (Enterprise Flexible Keyed-JSON Forms Hub) */}
-      <NoteFlexibleFormsDrawer
-        isOpen={isDrawerOpen}
-        onClose={() => {
-          setIsDrawerOpen(false);
-          setSupportingDrawerNote(null);
-        }}
-        note={supportingDrawerNote}
-        onUpdated={handleRefreshCurrentView}
-        apiBaseUrl={baseUrl}
-        authToken={session?.token || 'dev-bypass-token-2026'}
-      />
-
       {/* Friends Hub Modal */}
       <FriendsManagerModal
         isOpen={isFriendsModalOpen}
@@ -1115,6 +1122,7 @@ export function NotedView({ apiBaseUrl }: NotedViewProps) {
         onSelectChapter={(target) => handleOpenReader(target)}
         onSwitchToEdit={handleSwitchFromReaderToEdit}
         onOpenSupportingDrawer={handleOpenSupportingDrawer}
+        onManageMedia={handleOpenMediaModal}
         onCreateSubNote={handleCreateSubNoteFromReader}
         apiBaseUrl={baseUrl}
         authToken={session?.token || 'dev-bypass-token-2026'}

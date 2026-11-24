@@ -11,14 +11,38 @@ import {
   Activity,
   AlertTriangle,
   FolderGit2,
+  FolderOpen,
   Lock,
 } from 'lucide-react';
 import { Button, Card, CardHeader, CardTitle, CardContent, Skeleton } from '@org/ui';
 import { useAuth, setSession, silentRefreshToken } from '@org/auth';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { lazyProvider } from './mf';
 
-const RemoteNotedView = lazyProvider<{ apiBaseUrl?: string }>('compUI', 'NotedView');
+type NavigateFn = (path: string) => void;
+
+const RemoteNotedView = lazyProvider<{ apiBaseUrl?: string; onNavigate?: NavigateFn }>(
+  'compUI',
+  'NotedView'
+);
 const RemoteStandaloneQuestionnaire = lazyProvider<{ shareSlug?: string; apiBaseUrl?: string }>('compUI', 'StandaloneQuestionnaire');
+const RemoteNotedFormsPage = lazyProvider<{
+  kdJudul: string;
+  apiBaseUrl?: string;
+  onNavigate?: NavigateFn;
+}>('compUI', 'NotedFormsPage');
+const RemoteNotedFormResponsesPage = lazyProvider<{
+  kdJudul: string;
+  formId: string;
+  apiBaseUrl?: string;
+  initialTab?: 'rekap' | 'isi' | 'info';
+  onNavigate?: NavigateFn;
+}>('compUI', 'NotedFormResponsesPage');
+const RemoteNotedDocumentsPage = lazyProvider<{
+  kdJudul?: string;
+  apiBaseUrl?: string;
+  onNavigate?: NavigateFn;
+}>('compUI', 'NotedDocumentsPage');
 
 interface ProviderBoundaryProps {
   children: ReactNode;
@@ -104,7 +128,27 @@ class CompUIBoundary extends Component<ProviderBoundaryProps, ProviderBoundarySt
 
 export function App() {
   const { session, logout, isDevBypass } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'noted' | 'metrics' | 'info'>('noted');
+
+  const safeDecode = (value: string) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  };
+
+  const pathname = location.pathname;
+  const responsesMatch = pathname.match(/^\/forms\/([^/]+)\/([^/]+)\/responses\/?$/);
+  const formsMatch = pathname.match(/^\/forms\/([^/]+)\/?$/);
+  const isDocumentsRoute = pathname === '/documents' || pathname === '/documents/';
+
+  const goTo = (path: string) => {
+    setActiveTab('noted');
+    navigate(path);
+  };
   const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
 
   // Healthcheck states
@@ -258,15 +302,26 @@ export function App() {
           {/* Navigation Tabs */}
           <nav className="hidden md:flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/60">
             <button
-              onClick={() => setActiveTab('noted')}
+              onClick={() => goTo('/')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'noted'
+                activeTab === 'noted' && !isDocumentsRoute && !formsMatch && !responsesMatch
                   ? 'bg-card text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Layers className="h-3.5 w-3.5 text-primary" />
               <span>Catatan Turunan</span>
+            </button>
+            <button
+              onClick={() => goTo('/documents')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'noted' && isDocumentsRoute
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <FolderOpen className="h-3.5 w-3.5 text-amber-500" />
+              <span>Dokumen</span>
             </button>
             <button
               onClick={() => {
@@ -514,7 +569,31 @@ export function App() {
           <>
             {activeTab === 'noted' && (
               <CompUIBoundary>
-                <RemoteNotedView apiBaseUrl="http://localhost:3002/api" />
+                {responsesMatch ? (
+                  <RemoteNotedFormResponsesPage
+                    kdJudul={safeDecode(responsesMatch[1])}
+                    formId={safeDecode(responsesMatch[2])}
+                    apiBaseUrl="http://localhost:3002/api"
+                    onNavigate={navigate}
+                  />
+                ) : formsMatch ? (
+                  <RemoteNotedFormsPage
+                    kdJudul={safeDecode(formsMatch[1])}
+                    apiBaseUrl="http://localhost:3002/api"
+                    onNavigate={navigate}
+                  />
+                ) : isDocumentsRoute ? (
+                  <RemoteNotedDocumentsPage
+                    kdJudul={new URLSearchParams(location.search).get('kdJudul') || undefined}
+                    apiBaseUrl="http://localhost:3002/api"
+                    onNavigate={navigate}
+                  />
+                ) : (
+                  <RemoteNotedView
+                    apiBaseUrl="http://localhost:3002/api"
+                    onNavigate={navigate}
+                  />
+                )}
               </CompUIBoundary>
             )}
 

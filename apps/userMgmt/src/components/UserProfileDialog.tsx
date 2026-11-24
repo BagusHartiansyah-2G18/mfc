@@ -16,6 +16,7 @@ import {
   Clock,
   Sparkles,
   Lock,
+  KeyRound,
   X,
   Check,
 } from 'lucide-react';
@@ -49,6 +50,7 @@ interface UserProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdated?: () => void;
+  onResetPassword?: (user: User) => void;
 }
 
 export function UserProfileDialog({
@@ -57,6 +59,7 @@ export function UserProfileDialog({
   open,
   onOpenChange,
   onUpdated,
+  onResetPassword,
 }: UserProfileDialogProps) {
   const [activeTab, setActiveTab] = useState<'view' | 'edit'>('view');
 
@@ -305,6 +308,20 @@ export function UserProfileDialog({
                       <span className="text-[11px] text-muted-foreground/80 block mb-1">Password Kredensial</span>
                       <PasswordInput displayMaskedOnly />
                     </div>
+                    {onResetPassword && (
+                      <div className="pt-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onResetPassword(user)}
+                          className="h-7 text-xs gap-1.5 text-amber-600 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                        >
+                          <KeyRound className="h-3 w-3" />
+                          <span>Reset Password Akun</span>
+                        </Button>
+                      </div>
+                    )}
                     <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 pt-1">
                       <Clock className="h-3 w-3" />
                       <span>Terdaftar: {new Date(user.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>

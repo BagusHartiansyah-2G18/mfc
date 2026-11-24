@@ -50,6 +50,9 @@ export default defineConfig({
         './PublicFormPage': './src/components/noted/forms/PublicFormPage.tsx',
         './StandaloneQuestionnaire': './src/components/noted/forms/StandaloneQuestionnairePage.tsx',
         './StandaloneNotePage': './src/components/noted/StandaloneNotePage.tsx',
+        './NotedFormsPage': './src/components/noted/forms/NoteFormsPage.tsx',
+        './NotedFormResponsesPage': './src/components/noted/forms/NoteFormResponsesPage.tsx',
+        './NotedDocumentsPage': './src/components/noted/NoteDocumentsPage.tsx',
       },
       shared: {
         react: { singleton: true, requiredVersion: '^19.0.0' },

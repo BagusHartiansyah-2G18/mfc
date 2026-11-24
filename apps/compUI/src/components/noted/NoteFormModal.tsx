@@ -267,20 +267,20 @@ export function NoteFormModal({
         )}
 
         {/* Body Content */}
-        <div className="p-4 overflow-y-auto max-h-[75vh] space-y-4">
+        <div className="p-4 sm:p-5 overflow-y-auto max-h-[78vh] space-y-4">
           <form id="note-form" onSubmit={handleSubmit} className="space-y-4">
             
             {/* Auto-Code & Parent Inspector Block */}
             <div className="rounded-xl border border-border/70 bg-muted/20 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <Hash className="h-4 w-4 text-primary" />
-                <span className="text-muted-foreground">Preview Format Kode:</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Hash className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-muted-foreground">Preview Kode:</span>
                 <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
                   #{autoCodePreview}
                 </span>
                 {parentNote && (
-                  <span className="text-muted-foreground text-[11px]">
-                    (Anak dari #{parentNote.kdJudul} - {parentNote.judul})
+                  <span className="text-muted-foreground text-[11px] truncate max-w-xs">
+                    (Induk: #{parentNote.kdJudul} - {parentNote.judul})
                   </span>
                 )}
               </div>
@@ -292,7 +292,7 @@ export function NoteFormModal({
                   size="sm"
                   onClick={handleTriggerScaffold}
                   disabled={isScaffolding}
-                  className="h-7 text-xs font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10 cursor-pointer"
+                  className="h-7 text-xs font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10 cursor-pointer shrink-0"
                   title="Generate 5 tahapan standar MFC (Analisis, UI Design, Develop, Testing, Deploy)"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
@@ -301,303 +301,289 @@ export function NoteFormModal({
               )}
             </div>
 
-            {/* Input Judul */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                <span>Judul Catatan / Proyek *</span>
-                <span className="text-[10px] text-muted-foreground font-normal">Wajib diisi</span>
-              </label>
-              <Input
-                value={judul}
-                onChange={(e) => setJudul(e.target.value)}
-                placeholder="Contoh: Implementasi SSO & Refresh Token Guard"
-                className="text-xs font-semibold"
-                autoFocus
-              />
-            </div>
-
-            {/* Input Ringkasan */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                <span>Ringkasan Eksekutif *</span>
-                <span className="text-[10px] text-muted-foreground font-normal">Deskripsi singkat</span>
-              </label>
-              <Textarea
-                value={ringkasan}
-                onChange={(e) => setRingkasan(e.target.value)}
-                placeholder="Deskripsi singkat tujuan, ruang lingkup pengerjaan, atau deliverable utama..."
-                className="text-xs min-h-[50px] resize-none"
-              />
-            </div>
-
-            {/* Grid Status, Prioritas, Stage */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground">Status Pengerjaan</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
-                >
-                  <option value="DRAFT">DRAFT (Konsep)</option>
-                  <option value="IN_PROGRESS">IN_PROGRESS (Berjalan)</option>
-                  <option value="REVIEW">REVIEW (Pemeriksaan)</option>
-                  <option value="COMPLETED">COMPLETED (Selesai)</option>
-                  <option value="BLOCKED">BLOCKED (Kendala)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground">Tingkat Prioritas</label>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
-                >
-                  <option value="LOW">LOW (Rendah)</option>
-                  <option value="MEDIUM">MEDIUM (Normal)</option>
-                  <option value="HIGH">HIGH (Tinggi)</option>
-                  <option value="URGENT">URGENT (Mendesak)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground">Tahapan Kerja</label>
-                <select
-                  value={stage}
-                  onChange={(e) => setStage(e.target.value)}
-                  className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
-                >
-                  <option value="ANALISIS">1. Analisis Kebutuhan</option>
-                  <option value="UI_DESIGN">2. Desain UI/UX</option>
-                  <option value="DEVELOP">3. Pengembangan (Develop)</option>
-                  <option value="TESTING">4. Pengujian (Testing/QA)</option>
-                  <option value="DEPLOY">5. Rilis (Deployment)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* ========================================================= */}
-            {/* REQUIREMENT 2 & 3: PENANGGUNG JAWAB (PIC) & DELEGASI      */}
-            {/* ========================================================= */}
-            <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5 text-primary" />
-                  Penanggung Jawab (PIC) & Delegasi Tugas
-                </label>
-                <span className="text-[10px] font-mono text-muted-foreground">
-                  {assignMode === 'SELF' ? 'Dikerjakan Pembuat' : 'Didelegasikan ke Rekan'}
-                </span>
-              </div>
-
-              {/* Toggle Mode Penugasan */}
-              <div className="grid grid-cols-2 gap-1 p-0.5 bg-muted rounded-lg text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAssignMode('SELF');
-                    setPicName(defaultCreatorName);
-                    setPicId(defaultCreatorId);
-                  }}
-                  className={`py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    assignMode === 'SELF'
-                      ? 'bg-card text-primary shadow-xs font-bold'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <UserCheck className="h-3.5 w-3.5" />
-                  <span>Saya Sendiri (Pembuat)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAssignMode('FRIEND');
-                    if (friendsList.length > 0 && picId === defaultCreatorId) {
-                      const firstFriend = friendsList[0];
-                      setPicName(firstFriend.name);
-                      setPicId(firstFriend.id);
-                    }
-                  }}
-                  className={`py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    assignMode === 'FRIEND'
-                      ? 'bg-card text-primary shadow-xs font-bold'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  <span>Tugaskan / Kirim ke Rekan</span>
-                </button>
-              </div>
-
-              {/* Konten Pemilih Berdasarkan Mode */}
-              {assignMode === 'SELF' ? (
-                <div className="flex items-center gap-2 pt-1 text-xs">
+            {/* 2-Column Responsive Form Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              
+              {/* KOLOM KIRI: Informasi Inti, Delegasi, Catatan Teknis */}
+              <div className="space-y-3.5">
+                {/* Input Judul */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                    <span>Judul Catatan / Proyek *</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">Wajib diisi</span>
+                  </label>
                   <Input
-                    value={picName}
-                    onChange={(e) => setPicName(e.target.value)}
-                    placeholder="Nama penanggung jawab"
-                    className="h-8 text-xs flex-1 bg-card font-medium"
+                    value={judul}
+                    onChange={(e) => setJudul(e.target.value)}
+                    placeholder="Contoh: Implementasi SSO & Refresh Token Guard"
+                    className="text-xs font-semibold h-9"
+                    autoFocus
                   />
-                  <span className="text-[11px] text-muted-foreground shrink-0">
-                    (Akun Aktif Anda)
-                  </span>
                 </div>
-              ) : (
-                <div className="space-y-2 pt-1">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3 w-3 text-primary" /> Pilih Rekan / Anggota Tim Terdaftar:
+
+                {/* Input Ringkasan */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                    <span>Ringkasan Eksekutif *</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">Deskripsi singkat</span>
+                  </label>
+                  <Textarea
+                    value={ringkasan}
+                    onChange={(e) => setRingkasan(e.target.value)}
+                    placeholder="Deskripsi singkat tujuan, ruang lingkup pengerjaan, atau deliverable..."
+                    className="text-xs min-h-[60px] resize-none"
+                  />
+                </div>
+
+                {/* Penanggung Jawab (PIC) & Delegasi */}
+                <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-primary" />
+                      Penanggung Jawab (PIC)
                     </label>
-                    <select
-                      value={picId}
-                      onChange={(e) => {
-                        const selectedId = e.target.value;
-                        setPicId(selectedId);
-                        const found = friendsList.find((f) => f.id === selectedId);
-                        if (found) {
-                          setPicName(found.name);
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {assignMode === 'SELF' ? 'Akun Pembuat' : 'Delegasi Rekan'}
+                    </span>
+                  </div>
+
+                  {/* Toggle Mode Penugasan */}
+                  <div className="grid grid-cols-2 gap-1 p-0.5 bg-muted rounded-lg text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssignMode('SELF');
+                        setPicName(defaultCreatorName);
+                        setPicId(defaultCreatorId);
+                      }}
+                      className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs ${
+                        assignMode === 'SELF'
+                          ? 'bg-card text-primary shadow-xs font-bold'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <UserCheck className="h-3.5 w-3.5" />
+                      <span>Saya Sendiri</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssignMode('FRIEND');
+                        if (friendsList.length > 0 && picId === defaultCreatorId) {
+                          const firstFriend = friendsList[0];
+                          setPicName(firstFriend.name);
+                          setPicId(firstFriend.id);
                         }
                       }}
-                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2.5 text-foreground font-semibold"
+                      className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs ${
+                        assignMode === 'FRIEND'
+                          ? 'bg-card text-primary shadow-xs font-bold'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
                     >
-                      {friendsList.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.name} ({f.role || f.email})
-                        </option>
-                      ))}
+                      <Send className="h-3.5 w-3.5" />
+                      <span>Tugaskan Rekan</span>
+                    </button>
+                  </div>
+
+                  {assignMode === 'SELF' ? (
+                    <div className="flex items-center gap-2 pt-0.5 text-xs">
+                      <Input
+                        value={picName}
+                        onChange={(e) => setPicName(e.target.value)}
+                        placeholder="Nama penanggung jawab"
+                        className="h-8 text-xs flex-1 bg-card font-medium"
+                      />
+                      <span className="text-[11px] text-muted-foreground shrink-0 font-medium">
+                        (Akun Anda)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 pt-0.5">
+                      <select
+                        value={picId}
+                        onChange={(e) => {
+                          const selectedId = e.target.value;
+                          setPicId(selectedId);
+                          const found = friendsList.find((f) => f.id === selectedId);
+                          if (found) {
+                            setPicName(found.name);
+                          }
+                        }}
+                        className="w-full h-8 text-xs rounded-md border border-border bg-card px-2.5 text-foreground font-semibold"
+                      >
+                        {friendsList.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name} ({f.role || f.email})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-primary leading-tight font-medium">
+                        ✓ Catatan ditugaskan ke: <strong>{picName}</strong>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Catatan Teknis Detail (Opsional) */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Catatan Teknis Detail (Markdown)
+                  </label>
+                  <Textarea
+                    value={catatanDetail}
+                    onChange={(e) => setCatatanDetail(e.target.value)}
+                    placeholder="Rincian teknis, spesifikasi API endpoint, atau kriteria serah terima..."
+                    className="text-xs min-h-[70px] resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* KOLOM KANAN: Klasifikasi, Target Kinerja, Visibilitas, Tags */}
+              <div className="space-y-3.5">
+                {/* Grid Status, Prioritas, Stage */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-xl border border-border/80 bg-muted/15">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Status</label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
+                    >
+                      <option value="DRAFT">DRAFT</option>
+                      <option value="IN_PROGRESS">IN_PROGRESS</option>
+                      <option value="REVIEW">REVIEW</option>
+                      <option value="COMPLETED">COMPLETED</option>
+                      <option value="BLOCKED">BLOCKED</option>
                     </select>
                   </div>
 
-                  {/* Banner Instruksi Delegasi Rekan */}
-                  <div className="rounded-lg border border-primary/30 bg-primary/10 p-2.5 text-xs space-y-1">
-                    <div className="flex items-center gap-1.5 text-primary font-bold">
-                      <Send className="h-3.5 w-3.5" />
-                      <span>Catatan ini ditugaskan ke: {picName}</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Lengkapi <strong>Bobot Progres (%)</strong>, <strong>Target Pagu (Rp)</strong>, dan <strong>Batas Waktu</strong> di bawah untuk penugasan anggota ini.
-                    </p>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Prioritas</label>
+                    <select
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value)}
+                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
+                    >
+                      <option value="LOW">LOW</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="HIGH">HIGH</option>
+                      <option value="URGENT">URGENT</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Tahap Kerja</label>
+                    <select
+                      value={stage}
+                      onChange={(e) => setStage(e.target.value)}
+                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
+                    >
+                      <option value="ANALISIS">1. Analisis</option>
+                      <option value="UI_DESIGN">2. Desain UI</option>
+                      <option value="DEVELOP">3. Develop</option>
+                      <option value="TESTING">4. Testing</option>
+                      <option value="DEPLOY">5. Rilis</option>
+                    </select>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* ========================================================= */}
-            {/* REQUIREMENT 3: BOBOT, TARGET & BATAS WAKTU (DEFAULT NULL) */}
-            {/* ========================================================= */}
-            <div
-              className={`grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border transition-colors ${
-                assignMode === 'FRIEND'
-                  ? 'border-primary/50 bg-primary/5 shadow-2xs'
-                  : 'border-border/60 bg-muted/10'
-              }`}
-            >
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                  <Percent className="h-3 w-3 text-primary" /> Bobot Progres (%)
-                </label>
-                <Input
-                  type="number"
-                  min="0.1"
-                  max="100"
-                  step="0.5"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  placeholder="Kosong (null)"
-                  className="h-8 text-xs bg-card"
-                />
-              </div>
+                {/* Target Kerja & Anggaran: Bobot, Pagu, Batas Waktu */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border border-border/80 bg-muted/20">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                      <Percent className="h-3 w-3 text-primary" /> Bobot (%)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0.1"
+                      max="100"
+                      step="0.5"
+                      value={weight}
+                      onChange={(e) => setWeight(e.target.value)}
+                      placeholder="null"
+                      className="h-8 text-xs bg-card"
+                    />
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                  <Wallet className="h-3 w-3 text-emerald-600" /> Target Pagu (Rp)
-                </label>
-                <Input
-                  type="number"
-                  value={targetBudget}
-                  onChange={(e) => setTargetBudget(e.target.value)}
-                  placeholder="Kosong (null)"
-                  className="h-8 text-xs bg-card"
-                />
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                      <Wallet className="h-3 w-3 text-emerald-600" /> Pagu (Rp)
+                    </label>
+                    <Input
+                      type="number"
+                      value={targetBudget}
+                      onChange={(e) => setTargetBudget(e.target.value)}
+                      placeholder="null"
+                      className="h-8 text-xs bg-card"
+                    />
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-amber-600" /> Batas Waktu
-                </label>
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="h-8 text-xs bg-card"
-                />
-              </div>
-            </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3 text-amber-600" /> Deadline
+                    </label>
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="h-8 text-xs bg-card"
+                    />
+                  </div>
+                </div>
 
-            {/* Tags Input */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                <Tag className="h-3 w-3" /> Label Tags
-              </label>
-              <Input
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                placeholder="api,auth,docker,database (pisahkan dengan koma)"
-                className="h-8 text-xs"
-              />
-            </div>
+                {/* Visibilitas Publikasi Katalog */}
+                <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-2">
+                  <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                    <span>Visibilitas Katalog</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">Katalog Terbuka</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setSharingMode('PRIVATE')}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        sharingMode === 'PRIVATE'
+                          ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
+                          : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <p className="font-semibold text-xs text-foreground">🔒 Privat</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                        Hanya diakses Anda & anggota tim diizinkan.
+                      </p>
+                    </button>
 
-            {/* Catatan Teknis Detail (Opsional) */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-muted-foreground">
-                Catatan Teknis Detail (Markdown)
-              </label>
-              <Textarea
-                value={catatanDetail}
-                onChange={(e) => setCatatanDetail(e.target.value)}
-                placeholder="Rincian teknis, spesifikasi API endpoint, atau kriteria serah terima..."
-                className="text-xs min-h-[60px] resize-none"
-              />
-            </div>
+                    <button
+                      type="button"
+                      onClick={() => setSharingMode('PUBLIC')}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        sharingMode === 'PUBLIC'
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold shadow-2xs'
+                          : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <p className="font-semibold text-xs text-emerald-700 dark:text-emerald-400">🌐 Publik</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                        Tampil di tab Publik & bisa diakses tanpa login.
+                      </p>
+                    </button>
+                  </div>
+                </div>
 
-            {/* Visibilitas Publikasi Katalog */}
-            <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-2">
-              <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                <span>Visibilitas & Publikasi Katalog</span>
-                <span className="text-[10px] text-muted-foreground font-normal">Katalog Publik</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setSharingMode('PRIVATE')}
-                  className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                    sharingMode === 'PRIVATE'
-                      ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
-                      : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <p className="font-semibold text-xs text-foreground">🔒 Privat / Khusus</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                    Hanya dapat diakses oleh Anda dan anggota tim yang diizinkan.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSharingMode('PUBLIC')}
-                  className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                    sharingMode === 'PUBLIC'
-                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold shadow-2xs'
-                      : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <p className="font-semibold text-xs text-emerald-700 dark:text-emerald-400">🌐 Katalog Publik</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                    Tampil di tab Katalog Publik dan dapat dibaca oleh publik via tautan.
-                  </p>
-                </button>
+                {/* Tags Input */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                    <Tag className="h-3 w-3" /> Label Tags
+                  </label>
+                  <Input
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                    placeholder="api,auth,docker,database (pisahkan dengan koma)"
+                    className="h-8 text-xs"
+                  />
+                </div>
               </div>
             </div>
           </form>

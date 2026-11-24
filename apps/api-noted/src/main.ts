@@ -1,11 +1,27 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { json, urlencoded } from 'express';
+import { join } from 'node:path';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Body parser dinonaktifkan agar limit payload bisa dinaikkan untuk upload berkas form (base64).
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
 
   // Global prefix: /api
   app.setGlobalPrefix('api');
+
+  // Penyajian statis berkas form pendukung (gambar, PDF, dokumen).
+  const uploadRoot =
+    process.env.NOTED_UPLOAD_DIR || join(process.cwd(), 'uploads', 'noted');
+  app.useStaticAssets(uploadRoot, { prefix: '/uploads/' });
 
   // CORS diizinkan untuk seluruh micro frontend
   app.enableCors({
@@ -39,6 +55,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 [api-noted] Notes & Hierarchy Microservice running on: http://localhost:${port}/api`);
+  console.log(`📁 [api-noted] Static uploads served from: ${uploadRoot} at /uploads/`);
 }
 
 bootstrap();

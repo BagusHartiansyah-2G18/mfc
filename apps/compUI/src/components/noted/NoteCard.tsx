@@ -8,6 +8,7 @@ import {
   User,
   Users,
   SlidersHorizontal,
+  Upload,
   Globe,
   Eye,
 } from 'lucide-react';
@@ -142,52 +143,73 @@ export function NoteCard({
           )}
         </div>
 
-        {/* Collaborator Avatars & Media Badge Bar */}
-        <div className="flex items-center justify-between pt-2 border-t border-border/40 gap-2 flex-wrap">
-          {/* Avatar Stack */}
-          <button
-            type="button"
-            onClick={() => onManageMembers?.(note)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group/team"
-            title="Kelola Tim & Follower"
-          >
-            <div className="flex -space-x-1.5 overflow-hidden">
-              {note.collaborators && note.collaborators.length > 0 ? (
-                note.collaborators.slice(0, 3).map((c, i) => (
-                  <div
-                    key={c.id || i}
-                    className="inline-block h-5 w-5 rounded-full ring-2 ring-card bg-primary/20 text-primary font-bold text-[9px] flex items-center justify-center shrink-0"
-                    title={`${c.userName} (${c.role})`}
-                  >
-                    {c.userName.charAt(0).toUpperCase()}
+        {/* Collaborator Avatars & Quick Tools */}
+        <div className="pt-2.5 border-t border-border/40">
+          <div className="flex items-center justify-between gap-2">
+            {/* Team Stack */}
+            <button
+              type="button"
+              onClick={() => onManageMembers?.(note)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group/team cursor-pointer shrink-0"
+              title="Kelola Tim & Follower"
+            >
+              <div className="flex -space-x-1.5 overflow-hidden">
+                {note.collaborators && note.collaborators.length > 0 ? (
+                  note.collaborators.slice(0, 3).map((c, i) => (
+                    <div
+                      key={c.id || i}
+                      className="inline-block h-5 w-5 rounded-full ring-2 ring-card bg-primary/20 text-primary font-bold text-[9px] flex items-center justify-center shrink-0"
+                      title={`${c.userName} (${c.role})`}
+                    >
+                      {c.userName.charAt(0).toUpperCase()}
+                    </div>
+                  ))
+                ) : (
+                  <div className="h-5 w-5 rounded-full ring-2 ring-card bg-muted text-muted-foreground text-[10px] flex items-center justify-center shrink-0">
+                    <Users className="h-3 w-3" />
                   </div>
-                ))
-              ) : (
-                <div className="h-5 w-5 rounded-full ring-2 ring-card bg-muted text-muted-foreground text-[10px] flex items-center justify-center shrink-0">
-                  <Users className="h-3 w-3" />
-                </div>
-              )}
-            </div>
-            <span className="text-[11px] group-hover/team:text-primary font-medium">
-              {collaboratorCount > 0 ? `${collaboratorCount} Anggota` : 'Atur Tim'}
-            </span>
-          </button>
-
-          {/* Quick Supporting Trigger Badge */}
-          <button
-            type="button"
-            onClick={() => onOpenSupportingDrawer?.(note)}
-            className="flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:bg-primary/10 transition-colors px-2 py-0.5 rounded-md border border-primary/20"
-            title={`Buka Seluruh Form Pendukung: ${fileCount} Berkas, ${trxCount} Transaksi, ${checklistCount} Ceklist`}
-          >
-            <SlidersHorizontal className="h-3 w-3" />
-            <span>Form Pendukung</span>
-            {(fileCount > 0 || trxCount > 0 || checklistCount > 0) && (
-              <span className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0.2 rounded-full font-bold">
-                {fileCount + trxCount + checklistCount}
+                )}
+              </div>
+              <span className="text-[11px] group-hover/team:text-primary font-medium">
+                {collaboratorCount > 0 ? `${collaboratorCount} Anggota` : 'Atur Tim'}
               </span>
-            )}
-          </button>
+            </button>
+
+            {/* Quick Action Badges */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Form Pendukung Badge */}
+              <button
+                type="button"
+                onClick={() => onOpenSupportingDrawer?.(note)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/10 transition-colors px-2 py-0.5 rounded-md border border-primary/25 cursor-pointer"
+                title={`Buka Form Pendukung: ${trxCount} Transaksi, ${checklistCount} Ceklist`}
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                <span>Pendukung</span>
+                {(trxCount > 0 || checklistCount > 0) && (
+                  <span className="bg-primary text-primary-foreground text-[9px] px-1 rounded-full font-bold">
+                    {trxCount + checklistCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Form Upload Badge */}
+              <button
+                type="button"
+                onClick={() => onManageMedia?.(note)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors px-2 py-0.5 rounded-md border border-emerald-500/25 cursor-pointer"
+                title={`Form Upload & Berkas (${fileCount} Berkas Terlampir)`}
+              >
+                <Upload className="h-3 w-3" />
+                <span>Upload</span>
+                {fileCount > 0 && (
+                  <span className="bg-emerald-600 text-white text-[9px] px-1 rounded-full font-bold">
+                    {fileCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

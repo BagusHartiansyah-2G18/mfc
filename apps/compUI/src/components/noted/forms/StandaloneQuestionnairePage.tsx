@@ -20,6 +20,7 @@ import {
 import { Button, Input, Textarea, Skeleton, Card } from '@org/ui';
 import { type DataForm, type FormFieldDefinition } from '../types';
 import { SignatureCanvasPad } from './components/SignatureCanvasPad';
+import { FormFileUploadField } from './components/FormFileUploadField';
 import { RepeaterTableField } from './components/RepeaterTableField';
 
 interface StandaloneQuestionnairePageProps {
@@ -971,6 +972,21 @@ export function StandaloneQuestionnairePage({
                         onChange={(rows) => handleAnswerChange(fieldKey, rows)}
                         label={field.label}
                         helperText={field.description}
+                      />
+                    )}
+
+                    {/* 13. FILE / LAMPIRAN BERKAS */}
+                    {field.type === 'file' && (
+                      <FormFileUploadField
+                        label={field.label}
+                        helperText={field.description}
+                        required={field.required}
+                        value={val}
+                        onChange={(value) => handleAnswerChange(fieldKey, value)}
+                        uploadEndpoint={`${apiBaseUrl}/public/forms/${encodeURIComponent(
+                          activeSlug
+                        )}/upload`}
+                        skipAuth
                       />
                     )}
                   </div>

@@ -30,6 +30,7 @@ import {
   FileDown,
   Paperclip,
   Download,
+  Upload,
   Eye,
 } from 'lucide-react';
 import { Button, Card } from '@org/ui';
@@ -356,6 +357,17 @@ export function StandaloneNotePage({
             {/* Tombol Aksi Anggota (Jika Punya Izin CRUD) */}
             {permissions.canEdit && note && (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsMediaModalOpen(true)}
+                  className="h-8 text-xs font-semibold gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer shadow-2xs"
+                  title="Form Upload & Kelola Berkas Lampiran"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Form Upload</span>
+                </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -778,6 +790,15 @@ export function StandaloneNotePage({
             onSubmit={handleSaveSubNote}
             parentNote={note}
             currentTingkat={note.tingkat + 1}
+            apiBaseUrl={apiBaseUrl}
+          />
+
+          {/* Modal Form Upload & Bukti Media */}
+          <NoteMediaModal
+            isOpen={isMediaModalOpen}
+            onClose={() => setIsMediaModalOpen(false)}
+            note={note}
+            onFilesUpdated={() => fetchNoteDetail(note.kdJudul)}
             apiBaseUrl={apiBaseUrl}
           />
         </>

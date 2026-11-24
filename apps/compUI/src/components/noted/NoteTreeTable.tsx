@@ -11,6 +11,7 @@ import {
   Users,
   Paperclip,
   FileText,
+  Upload,
   SlidersHorizontal,
   Eye,
 } from 'lucide-react';
@@ -206,11 +207,11 @@ export function NoteTreeTable({
                           <button
                             type="button"
                             onClick={() => onManageMedia?.(item)}
-                            className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline"
-                            title="Buka Mode Read PDF & Bukti Foto"
+                            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:underline cursor-pointer"
+                            title="Form Upload & Lampiran Berkas"
                           >
-                            <Paperclip className="h-3 w-3" />
-                            <span>{fileCount > 0 ? `${fileCount} Lampiran` : 'Lampiran'}</span>
+                            <Upload className="h-3 w-3" />
+                            <span>{fileCount > 0 ? `${fileCount} Berkas` : 'Form Upload'}</span>
                           </button>
                         </div>
                       </td>
@@ -301,9 +302,9 @@ export function NoteTreeTable({
                             size="icon"
                             onClick={() => onManageMedia?.(item)}
                             className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10 cursor-pointer"
-                            title="Buka Mode Read PDF & Bukti Media"
+                            title="Form Upload & Berkas Media (PDF/Foto)"
                           >
-                            <FileText className="h-3.5 w-3.5" />
+                            <Upload className="h-3.5 w-3.5 text-emerald-600" />
                           </Button>
 
                           <Button

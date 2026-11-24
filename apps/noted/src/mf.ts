@@ -29,6 +29,16 @@ try {
   }
 }
 
+const LOCAL_FALLBACKS: Record<string, () => Promise<any>> = {
+  NotedView: () => import('../../compUI/src/components/noted/NotedView'),
+  StandaloneQuestionnaire: () =>
+    import('../../compUI/src/components/noted/forms/StandaloneQuestionnairePage'),
+  NotedFormsPage: () => import('../../compUI/src/components/noted/forms/NoteFormsPage'),
+  NotedFormResponsesPage: () =>
+    import('../../compUI/src/components/noted/forms/NoteFormResponsesPage'),
+  NotedDocumentsPage: () => import('../../compUI/src/components/noted/NoteDocumentsPage'),
+};
+
 export function lazyProvider<Props extends object = Record<string, unknown>>(
   alias: string,
   exposeName: string
@@ -51,10 +61,11 @@ export function lazyProvider<Props extends object = Record<string, unknown>>(
     }
 
     // 2. Fallback aman ke modul workspace compUI lokal jika remoteEntry belum selesai reload
-    if (alias === 'compUI' && exposeName === 'NotedView') {
+    const localLoader = alias === 'compUI' ? LOCAL_FALLBACKS[exposeName] : undefined;
+    if (localLoader) {
       try {
-        const localMod = await import('../../compUI/src/components/noted/NotedView');
-        const LocalComponent = localMod.default || localMod.NotedView;
+        const localMod = await localLoader();
+        const LocalComponent = localMod?.default || localMod?.[exposeName];
         if (LocalComponent) {
           return { default: LocalComponent as unknown as ComponentType<Props> };
         }

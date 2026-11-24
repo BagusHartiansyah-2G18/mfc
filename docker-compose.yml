@@ -44,6 +44,7 @@ services:
       PORT_API_NOTED: "${PORT_API_NOTED:-3002}"
       DATABASE_NOTED_URL: "${DOCKER_DATABASE_NOTED_URL:-mysql://root:root@host.docker.internal:3306/bgs_noted}"
       JWT_SECRET: "${JWT_SECRET:-bgs-microfe-enterprise-secret-key-2026}"
+      NOTED_UPLOAD_DIR: "${NOTED_UPLOAD_DIR:-/app/uploads/noted}"
     restart: unless-stopped
     command: >
       sh -c "([ -d /app/node_modules/@prisma/client ] || npm install --no-audit --no-fund --prefix /app) &&
