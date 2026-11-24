@@ -900,10 +900,9 @@ export function LoginPage() {
           </form>
 
           {/* ===================================================================== */}
-          {/* SSO & SOCIAL LOGIN SECTION (DEVELOPER PREVIEW ONLY)                   */}
+          {/* SSO & SOCIAL LOGIN SECTION (ENTERPRISE SSO PREVIEW)                   */}
           {/* ===================================================================== */}
-          {isDevBypass && (
-            <div className="space-y-3 pt-1">
+          <div className="space-y-3 pt-1">
               <div className="relative flex items-center justify-center">
                 <div className="w-full border-t border-border/80" />
                 <span className="bg-background px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground relative">
@@ -915,6 +914,7 @@ export function LoginPage() {
               <div className="grid grid-cols-3 gap-2">
                 <Button
                   type="button"
+                  aria-label="Microsoft"
                   variant="outline"
                   size="sm"
                   onClick={() => setSsoInfoProvider('Microsoft Entra ID')}
@@ -929,6 +929,7 @@ export function LoginPage() {
 
                 <Button
                   type="button"
+                  aria-label="Google"
                   variant="outline"
                   size="sm"
                   onClick={() => setSsoInfoProvider('Google Workspace')}
@@ -943,6 +944,7 @@ export function LoginPage() {
 
                 <Button
                   type="button"
+                  aria-label="GitHub"
                   variant="outline"
                   size="sm"
                   onClick={() => setSsoInfoProvider('GitHub Enterprise')}
@@ -967,7 +969,6 @@ export function LoginPage() {
                 </button>
               </div>
             </div>
-          )}
 
           {/* ===================================================================== */}
           {/* QUICK FILL SEED ACCOUNTS (DEVELOPMENT TESTING TOOL - HANYA DI DEV)    */}

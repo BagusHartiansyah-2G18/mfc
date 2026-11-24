@@ -13,6 +13,7 @@ import {
   TableSkeleton,
   TablePagination,
   DataTable,
+  exportTableData,
   type ColumnDef,
 } from "./table"
 
@@ -229,5 +230,40 @@ describe("TanStack Powered DataTable Component", () => {
     )
 
     expect(mockFetcher).toHaveBeenCalled()
+  })
+
+  it("supports enterprise export functionality and exportTableData helper", () => {
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null)
+
+    render(
+      <DataTable
+        data={sampleUsers}
+        columns={columns}
+        enableExport={true}
+        exportFileName="test-export-users"
+      />
+    )
+
+    expect(screen.getByText(/Ekspor/i)).toBeInTheDocument()
+
+    // Test exportTableData helper does not throw
+    expect(() => {
+      exportTableData(sampleUsers, columns, {
+        filename: "unit-test-export",
+        format: "csv",
+      })
+      exportTableData(sampleUsers, columns, {
+        filename: "unit-test-export",
+        format: "excel",
+      })
+      exportTableData(sampleUsers, columns, {
+        filename: "unit-test-export",
+        format: "print",
+      })
+    }).not.toThrow()
+
+    clickSpy.mockRestore()
+    openSpy.mockRestore()
   })
 })

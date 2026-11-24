@@ -217,8 +217,7 @@ export function getSession(): UserSession | null {
     const persistentRaw = window.localStorage.getItem(STORAGE_SESSION_KEY);
     if (persistentRaw) {
       const sess: UserSession = JSON.parse(persistentRaw);
-      // Toleransi 60 detik clock-skew
-      if (sess.expiresAt + 60000 > Date.now()) {
+      if (sess.expiresAt > Date.now()) {
         return sess;
       }
       window.localStorage.removeItem(STORAGE_SESSION_KEY);
@@ -229,7 +228,7 @@ export function getSession(): UserSession | null {
     const sessionRaw = window.sessionStorage.getItem(STORAGE_SESSION_KEY);
     if (sessionRaw) {
       const sess: UserSession = JSON.parse(sessionRaw);
-      if (sess.expiresAt + 60000 > Date.now()) {
+      if (sess.expiresAt > Date.now()) {
         return sess;
       }
       window.sessionStorage.removeItem(STORAGE_SESSION_KEY);

@@ -21,10 +21,22 @@ menus:
         order: 10
         enabled: true
       - id: noted-app
-        label: Catatan Turunan
+        label: Catatan Saya
         path: /noted
         icon: layers
         order: 28
+        enabled: true
+      - id: noted-shared
+        label: Dibagikan ke Saya
+        path: /noted/shared
+        icon: users
+        order: 29
+        enabled: true
+      - id: noted-public
+        label: Katalog Publik
+        path: /noted/public
+        icon: globe
+        order: 30
         enabled: true
       - id: user-management
         label: Manajemen Pengguna

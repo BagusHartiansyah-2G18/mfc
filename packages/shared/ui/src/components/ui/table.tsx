@@ -17,8 +17,12 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Download,
+  FileSpreadsheet,
+  FileText,
   Inbox,
   Loader2,
+  Printer,
   Search,
   X,
 } from "lucide-react"
@@ -34,6 +38,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./dropdown-menu"
 
 /* -------------------------------------------------------------------------- */
 /*                                Types & Context                             */
@@ -511,7 +521,7 @@ export function TablePagination({
   page,
   pageSize,
   totalItems,
-  pageSizeOptions = [10, 20, 50, 100],
+  pageSizeOptions = [5, 10, 20, 25, 50, 100],
   onPageChange,
   onPageSizeChange,
   showTotal = true,
@@ -633,6 +643,170 @@ TablePagination.displayName = "TablePagination"
 /*             TanStack Powered Enterprise DataTable Component                */
 /* -------------------------------------------------------------------------- */
 
+export interface ExportOptions {
+  filename?: string
+  format?: "csv" | "excel" | "print"
+  title?: string
+}
+
+export function exportTableData<T>(
+  rows: T[],
+  columns: ColumnDef<T, any>[],
+  options: ExportOptions = {}
+) {
+  if (typeof window === "undefined" || !rows || rows.length === 0) return
+
+  const {
+    filename = `export-${new Date().toISOString().slice(0, 10)}`,
+    format = "csv",
+    title = "MFC Enterprise Data Export",
+  } = options
+
+  // Filter out internal system columns like checkbox select or action buttons
+  const exportableCols = columns.filter((col) => {
+    const id = (col as any).id || (col as any).accessorKey
+    if (id === "_select" || id === "actions" || id === "_actions") return false
+    return true
+  })
+
+  const headers = exportableCols.map((col) => {
+    if (typeof col.header === "string") return col.header
+    const id = (col as any).id || (col as any).accessorKey
+    return String(id || "Kolom")
+  })
+
+  const extractCellValue = (row: T, col: ColumnDef<T, any>): string => {
+    const accessorKey = (col as any).accessorKey
+    if (accessorKey && (row as any)[accessorKey] !== undefined) {
+      const val = (row as any)[accessorKey]
+      if (val === null || val === undefined) return ""
+      if (typeof val === "object") return JSON.stringify(val)
+      return String(val)
+    }
+    const id = (col as any).id
+    if (id && (row as any)[id] !== undefined) {
+      const val = (row as any)[id]
+      if (val === null || val === undefined) return ""
+      if (typeof val === "object") return JSON.stringify(val)
+      return String(val)
+    }
+    return ""
+  }
+
+  const dataRows = rows.map((r) =>
+    exportableCols.map((col) => extractCellValue(r, col))
+  )
+
+  if (format === "csv") {
+    const csvContent = [
+      headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(","),
+      ...dataRows.map((row) =>
+        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")
+      ),
+    ].join("\r\n")
+
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.setAttribute("download", `${filename}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    return
+  }
+
+  if (format === "excel") {
+    const tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: sans-serif; font-size: 11pt; }
+          th { background-color: #0284c7; color: #ffffff; font-weight: bold; border: 1px solid #0369a1; padding: 8px 12px; }
+          td { border: 1px solid #cbd5e1; padding: 6px 10px; }
+          tr:nth-child(even) { background-color: #f8fafc; }
+        </style>
+      </head>
+      <body>
+        <h2>${title}</h2>
+        <p style="font-size: 9pt; color: #64748b;">Tanggal Ekspor: ${new Date().toLocaleString("id-ID")}</p>
+        <table>
+          <thead>
+            <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${dataRows
+              .map(
+                (row) =>
+                  `<tr>${row.map((c) => `<td>${c}</td>`).join("")}</tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `
+    const blob = new Blob([tableHtml], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.setAttribute("download", `${filename}.xls`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    return
+  }
+
+  if (format === "print") {
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 24px; color: #0f172a; }
+            h2 { margin-bottom: 4px; font-size: 18px; font-weight: 700; }
+            .meta { font-size: 11px; color: #64748b; margin-bottom: 16px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+            th { background-color: #f1f5f9; font-weight: 600; }
+            tr:nth-child(even) { background-color: #f8fafc; }
+            @media print {
+              body { padding: 0; }
+              @page { size: landscape; margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          <h2>${title}</h2>
+          <div class="meta">Diekspor pada: ${new Date().toLocaleString("id-ID")} • Total data: ${rows.length}</div>
+          <table>
+            <thead>
+              <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${dataRows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() { window.print(); };
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+}
+
 export type FetchParams = {
   pageIndex: number
   pageSize: number
@@ -664,6 +838,10 @@ export interface DataTableProps<TData> {
   emptyText?: string
   pageSize?: number
   pageSizeOptions?: number[]
+  enableExport?: boolean
+  exportFileName?: string
+  exportFormats?: ("csv" | "excel" | "print")[]
+  onExport?: (format: "csv" | "excel" | "print", rows: TData[]) => void
   toolbar?: React.ReactNode
   bulkActions?: (
     selectedRows: TData[],
@@ -701,10 +879,14 @@ export function DataTable<TData>({
   enableSorting = true,
   enableRowSelection = false,
   enableGlobalFilter = true,
-  searchPlaceholder = "Search...",
-  emptyText = "No results found.",
+  searchPlaceholder = "Cari seluruh data...",
+  emptyText = "Tidak ada data yang ditemukan.",
   pageSize = 10,
-  pageSizeOptions = [10, 25, 50],
+  pageSizeOptions = [5, 10, 20, 25, 50, 100],
+  enableExport = false,
+  exportFileName = "mfc-data-export",
+  exportFormats = ["csv", "excel", "print"],
+  onExport,
   toolbar,
   bulkActions,
   className,
@@ -853,10 +1035,23 @@ export function DataTable<TData>({
   const selectedRows = table.getFilteredSelectedRowModel().rows.map((r) => r.original)
   const selectedCount = Object.keys(rowSelection).filter((k) => rowSelection[k]).length
 
+  const handleExport = (format: "csv" | "excel" | "print") => {
+    const targetData = selectedCount > 0 ? selectedRows : displayData
+    if (onExport) {
+      onExport(format, targetData)
+      return
+    }
+    exportTableData(targetData, columns, {
+      filename: exportFileName,
+      format,
+      title: exportFileName,
+    })
+  }
+
   return (
     <div className={cn("flex flex-col gap-3 w-full", containerClassName)}>
-      {/* Top Controls: Search, Toolbar & Bulk Actions */}
-      {(showSearch && enableGlobalFilter) || toolbar || selectedCount > 0 ? (
+      {/* Top Controls: Search, Toolbar, Export & Bulk Actions */}
+      {(showSearch && enableGlobalFilter) || toolbar || enableExport || selectedCount > 0 ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 flex-wrap items-center gap-2">
             {showSearch && enableGlobalFilter ? (
@@ -885,17 +1080,70 @@ export function DataTable<TData>({
               </div>
             ) : null}
 
-            {selectedCount > 0 && bulkActions ? (
+            {selectedCount > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-primary">
                   {selectedCount} baris terpilih
                 </span>
-                {bulkActions(selectedRows, rowSelection)}
+                <button
+                  type="button"
+                  onClick={() => setRowSelection({})}
+                  className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
+                >
+                  Batal
+                </button>
+                {bulkActions && bulkActions(selectedRows, rowSelection)}
               </div>
-            ) : null}
+            )}
           </div>
 
-          {toolbar ? <div className="flex items-center gap-2">{toolbar}</div> : null}
+          <div className="flex items-center gap-2">
+            {enableExport && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 text-xs font-medium cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Ekspor{selectedCount > 0 ? ` (${selectedCount})` : ""}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {exportFormats.includes("csv") && (
+                    <DropdownMenuItem
+                      onClick={() => handleExport("csv")}
+                      className="gap-2 cursor-pointer text-xs"
+                    >
+                      <FileText className="h-4 w-4 text-emerald-600" />
+                      <span>Ekspor CSV (.csv)</span>
+                    </DropdownMenuItem>
+                  )}
+                  {exportFormats.includes("excel") && (
+                    <DropdownMenuItem
+                      onClick={() => handleExport("excel")}
+                      className="gap-2 cursor-pointer text-xs"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                      <span>Ekspor Excel (.xls)</span>
+                    </DropdownMenuItem>
+                  )}
+                  {exportFormats.includes("print") && (
+                    <DropdownMenuItem
+                      onClick={() => handleExport("print")}
+                      className="gap-2 cursor-pointer text-xs"
+                    >
+                      <Printer className="h-4 w-4 text-blue-600" />
+                      <span>Cetak / Simpan PDF</span>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {toolbar ? toolbar : null}
+          </div>
         </div>
       ) : null}
 

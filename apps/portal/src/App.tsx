@@ -1,5 +1,5 @@
 import { Component, Suspense, useEffect, useState, useMemo, type ReactNode } from 'react';
-import { Route, Routes, Navigate, Link, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, Navigate, Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
   AppShell,
   PublicLayout,
@@ -323,15 +323,25 @@ function PortalHeader({ brand }: { brand: string }) {
 function NotedRouteHandler({
   effectiveMenu,
   brandName,
+  defaultTab = 'MY_NOTES',
 }: {
   effectiveMenu: FeatureMenu | null;
   brandName: string;
+  defaultTab?: 'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG';
 }) {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const hasViewParam = Boolean(searchParams.get('viewNote') || searchParams.get('note') || searchParams.get('kdJudul'));
-  const kdJudulFromParam = searchParams.get('viewNote') || searchParams.get('note') || searchParams.get('kdJudul');
+
+  // Tentukan tab aktif berdasarkan rute URL saat ini atau defaultTab
+  const activeTab: 'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG' = useMemo(() => {
+    if (location.pathname.endsWith('/shared')) return 'SHARED_WITH_ME';
+    if (location.pathname.endsWith('/public') || location.pathname.endsWith('/katalog-publik')) return 'PUBLIC_CATALOG';
+    if (location.pathname.endsWith('/my-notes') || location.pathname === '/noted') return 'MY_NOTES';
+    return defaultTab;
+  }, [location.pathname, defaultTab]);
 
   // Jika pengunjung belum login dan mengakses catatan spesifik (misal ?viewNote=1),
   // sajikan langsung Halaman Mandiri Catatan Bebas Login (Mode Publik) tanpa me-redirect ke login!
@@ -352,7 +362,14 @@ function NotedRouteHandler({
             <div className="p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
               <RemoteNotedView
                 apiBaseUrl="http://localhost:3002/api"
-                onNavigate={(path) => navigate(path === '/' ? '/noted' : `/noted${path}`)}
+                initialTab={activeTab}
+                activeTab={activeTab}
+                onNavigate={(path) => {
+                  if (path === '/shared') navigate('/noted/shared');
+                  else if (path === '/public') navigate('/noted/public');
+                  else if (path === '/' || path === '/my-notes') navigate('/noted');
+                  else navigate(path.startsWith('/noted') ? path : `/noted${path}`);
+                }}
               />
             </div>
           </ProviderBoundary>
@@ -603,7 +620,7 @@ export function App() {
         }
       />
 
-      {/* 5. Halaman Aplikasi Noted: Mendukung Mode Publik (tanpa login jika ada ?viewNote=1) & Mode Dashboard Terintegrasi */}
+      {/* 5. Halaman Aplikasi Noted: Catatan Saya, Dibagikan ke Saya, dan Katalog Terbuka Publik */}
       <Route
         path="/noted/forms/:kdJudul"
         element={<NotedWorkspaceRoute kind="forms" effectiveMenu={effectiveMenu} brandName={brandName} />}
@@ -617,12 +634,28 @@ export function App() {
         element={<NotedWorkspaceRoute kind="documents" effectiveMenu={effectiveMenu} brandName={brandName} />}
       />
       <Route
+        path="/noted/shared"
+        element={<NotedRouteHandler defaultTab="SHARED_WITH_ME" effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+      <Route
+        path="/noted/public"
+        element={<NotedRouteHandler defaultTab="PUBLIC_CATALOG" effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+      <Route
+        path="/noted/katalog-publik"
+        element={<Navigate to="/noted/public" replace />}
+      />
+      <Route
+        path="/noted/my-notes"
+        element={<Navigate to="/noted" replace />}
+      />
+      <Route
         path="/noted"
-        element={<NotedRouteHandler effectiveMenu={effectiveMenu} brandName={brandName} />}
+        element={<NotedRouteHandler defaultTab="MY_NOTES" effectiveMenu={effectiveMenu} brandName={brandName} />}
       />
       <Route
         path="/noted/*"
-        element={<NotedRouteHandler effectiveMenu={effectiveMenu} brandName={brandName} />}
+        element={<NotedRouteHandler defaultTab="MY_NOTES" effectiveMenu={effectiveMenu} brandName={brandName} />}
       />
 
       {/* 6. Alias Navigasi Cepat */}

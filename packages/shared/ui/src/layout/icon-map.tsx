@@ -17,6 +17,8 @@ import {
   Shield,
   Table2,
   Wallet,
+  Layers,
+  Globe,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -39,6 +41,8 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   shield: Shield,
   table: Table2,
   wallet: Wallet,
+  layers: Layers,
+  globe: Globe,
 }
 
 export function getIcon(name?: string): LucideIcon {

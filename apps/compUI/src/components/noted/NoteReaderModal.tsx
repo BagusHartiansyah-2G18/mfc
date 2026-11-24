@@ -39,6 +39,7 @@ interface NoteReaderModalProps {
   isOpen: boolean;
   onClose: () => void;
   note: JudulNote | null;
+  isPublicContext?: boolean;
   chapterList?: JudulNote[]; // Daftar sub-catatan dalam bab yang sama (siblings)
   onSelectChapter?: (note: JudulNote) => void;
   onSwitchToEdit?: (note: JudulNote) => void;
@@ -54,6 +55,7 @@ export function NoteReaderModal({
   isOpen,
   onClose,
   note,
+  isPublicContext = false,
   chapterList = [],
   onSelectChapter,
   onSwitchToEdit,
@@ -175,7 +177,7 @@ export function NoteReaderModal({
     async (target: JudulNote) => {
       try {
         setIsLoadingHierarchy(true);
-        const isPublic = target.sharingMode === 'PUBLIC';
+        const isPublic = Boolean(isPublicContext || target.sharingMode === 'PUBLIC' || target.publikasi);
         const url = isPublic
           ? `${apiBaseUrl}/sharing/public-sub?kdJudul=${encodeURIComponent(target.kdJudul)}&tingkat=${target.tingkat}`
           : `${apiBaseUrl}/notes/sub?kdJudul=${encodeURIComponent(target.kdJudul)}&tingkat=${target.tingkat}&kdMember=${encodeURIComponent(target.kdMember || '')}`;
@@ -195,7 +197,7 @@ export function NoteReaderModal({
         setAncestorChain(indukList);
 
         if (payload.current) {
-          setActiveNote((prev) => (prev ? { ...prev, ...payload.current } : payload.current));
+          setActiveNote((prev) => (prev ? { ...prev, ...payload.current, sharingMode: isPublic ? 'PUBLIC' : prev.sharingMode } : payload.current));
         }
 
         // Tentukan tab default sidebar secara cerdas
@@ -211,7 +213,7 @@ export function NoteReaderModal({
         setIsLoadingHierarchy(false);
       }
     },
-    [apiBaseUrl, chapterList.length]
+    [apiBaseUrl, chapterList.length, isPublicContext]
   );
 
   // 3. Sinkronisasi activeNote saat prop `note` berubah atau modal pertama kali dibuka

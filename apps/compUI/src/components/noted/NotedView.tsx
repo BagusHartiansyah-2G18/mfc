@@ -46,9 +46,11 @@ import { NoteReaderModal } from './NoteReaderModal';
 export interface NotedViewProps {
   apiBaseUrl?: string;
   onNavigate?: (path: string) => void;
+  initialTab?: 'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG';
+  activeTab?: 'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG';
 }
 
-export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
+export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: NotedViewProps) {
   const { session, isDevBypass } = useAuth();
 
   const baseUrl = (
@@ -65,7 +67,24 @@ export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
   const [selectedParent, setSelectedParent] = useState<JudulNote | null>(null);
 
   // 3-Tier Multi-Tab Hub (Catatan Saya, Dibagikan ke Saya, Katalog Publik)
-  const [mainTab, setMainTab] = useState<'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG'>('MY_NOTES');
+  const getInitialTab = (): 'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG' => {
+    if (activeTab) return activeTab;
+    if (initialTab) return initialTab;
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      if (pathname.endsWith('/shared')) return 'SHARED_WITH_ME';
+      if (pathname.endsWith('/public') || pathname.endsWith('/katalog-publik')) return 'PUBLIC_CATALOG';
+    }
+    return 'MY_NOTES';
+  };
+
+  const [mainTab, setMainTab] = useState<'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG'>(getInitialTab);
+
+  useEffect(() => {
+    if (activeTab && activeTab !== mainTab) {
+      setMainTab(activeTab);
+    }
+  }, [activeTab]);
   const [sharedNotes, setSharedNotes] = useState<JudulNote[]>([]);
   const [publicNotes, setPublicNotes] = useState<JudulNote[]>([]);
 
@@ -807,6 +826,11 @@ export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
                 type="button"
                 onClick={() => {
                   setMainTab('MY_NOTES');
+                  if (onNavigate) {
+                    onNavigate('/');
+                  } else if (typeof window !== 'undefined') {
+                    window.history.pushState({}, '', '/noted');
+                  }
                   fetchRootNotes();
                 }}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
@@ -826,6 +850,11 @@ export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
                 type="button"
                 onClick={() => {
                   setMainTab('SHARED_WITH_ME');
+                  if (onNavigate) {
+                    onNavigate('/shared');
+                  } else if (typeof window !== 'undefined') {
+                    window.history.pushState({}, '', '/noted/shared');
+                  }
                   fetchSharedNotes();
                 }}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
@@ -845,6 +874,11 @@ export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
                 type="button"
                 onClick={() => {
                   setMainTab('PUBLIC_CATALOG');
+                  if (onNavigate) {
+                    onNavigate('/public');
+                  } else if (typeof window !== 'undefined') {
+                    window.history.pushState({}, '', '/noted/public');
+                  }
                   fetchPublicNotes();
                 }}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
@@ -1148,6 +1182,7 @@ export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
         isOpen={isReaderOpen}
         onClose={handleCloseReader}
         note={readerNote}
+        isPublicContext={mainTab === 'PUBLIC_CATALOG'}
         chapterList={
           selectedParent
             ? subNotes
