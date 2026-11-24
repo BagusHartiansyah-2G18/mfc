@@ -1023,20 +1023,20 @@ export function LoginPage() {
         <div className="space-y-4 pt-6 border-t border-border/60 text-center">
           {/* Environment & Runtime Status Information Badges */}
           <div className="flex flex-wrap items-center justify-center gap-2">
-            {isDevBypass && (
-              <>
-                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold py-0.5 px-2.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
-                  [ DEVELOPMENT ENVIRONMENT ]
-                </span>
+            {(import.meta.env.DEV || isDevBypass) && (
+              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold py-0.5 px-2.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
+                [ DEVELOPMENT ENVIRONMENT ]
+              </span>
+            )}
 
-                <span
-                  data-testid="status-bypass-pill"
-                  className="inline-flex items-center gap-1 font-mono text-[10px] font-bold py-0.5 px-2.5 rounded-full border bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800"
-                >
-                  [ DEV BYPASS: ON ]
-                </span>
-              </>
+            {isDevBypass && (
+              <span
+                data-testid="status-bypass-pill"
+                className="inline-flex items-center gap-1 font-mono text-[10px] font-bold py-0.5 px-2.5 rounded-full border bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800"
+              >
+                [ DEV BYPASS: ON ]
+              </span>
             )}
 
             <button
