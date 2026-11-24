@@ -27,8 +27,10 @@ import {
   FolderTree,
   Globe,
   Upload,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
-import { Button } from '@org/ui';
+import { Button, cn } from '@org/ui';
 import { authFetch } from '@org/auth';
 import { type JudulNote, type JudulChecklist, type NoteBreadcrumb } from './types';
 import { NoteStatusBadge, NoteStageBadge, NotePriorityBadge } from './NoteStatusBadge';
@@ -67,7 +69,56 @@ export function NoteReaderModal({
   const [childNotes, setChildNotes] = useState<JudulNote[]>([]);
   const [ancestorChain, setAncestorChain] = useState<NoteBreadcrumb[]>([]);
   const [isLoadingHierarchy, setIsLoadingHierarchy] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<'CHILDREN' | 'SIBLINGS'>('CHILDREN');
+  const [sidebarTab, setSidebarTab] = useState<'OUTLINE' | 'CHILDREN' | 'SIBLINGS'>('OUTLINE');
+
+  // Fullscreen / Zen Reading Mode
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Font Size dengan persistensi LocalStorage
+  const [fontSize, setFontSize] = useState<'normal' | 'medium' | 'large'>(() => {
+    try {
+      const saved = localStorage.getItem('noted_reader_font_size');
+      if (saved === 'medium' || saved === 'large' || saved === 'normal') {
+        return saved;
+      }
+    } catch {}
+    return 'normal';
+  });
+
+  const handleChangeFontSize = (size: 'normal' | 'medium' | 'large') => {
+    setFontSize(size);
+    try {
+      localStorage.setItem('noted_reader_font_size', size);
+    } catch {}
+  };
+
+  const fontSizeClass = useMemo(() => {
+    switch (fontSize) {
+      case 'medium':
+        return 'text-sm sm:text-base leading-relaxed';
+      case 'large':
+        return 'text-base sm:text-lg leading-relaxed';
+      case 'normal':
+      default:
+        return 'text-xs sm:text-sm leading-relaxed';
+    }
+  }, [fontSize]);
+
+  // Reading progress tracker (0% - 100%)
+  const [readingProgress, setReadingProgress] = useState(0);
+
+  const handleDocumentScroll = () => {
+    const el = mainScrollRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const maxScroll = scrollHeight - clientHeight;
+    if (maxScroll <= 5) {
+      setReadingProgress(100);
+    } else {
+      const pct = Math.min(100, Math.max(0, Math.round((scrollTop / maxScroll) * 100)));
+      setReadingProgress(pct);
+    }
+  };
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -77,6 +128,47 @@ export function NoteReaderModal({
   // Local checklist state for optimistic updates
   const [localChecklists, setLocalChecklists] = useState<JudulChecklist[]>([]);
   const mainScrollRef = useRef<HTMLDivElement>(null);
+
+  // Ekstraksi Outline / Daftar Isi Cepat dari teks heading Markdown
+  const outlineItems = useMemo(() => {
+    const text = activeNote?.catatanDetail || activeNote?.ringkasan || '';
+    if (!text) return [];
+    const lines = text.split('\n');
+    const items: Array<{ id: string; level: number; text: string }> = [];
+    lines.forEach((line, i) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('### ')) {
+        items.push({ id: `heading-sec-${i}`, level: 3, text: trimmed.substring(4) });
+      } else if (trimmed.startsWith('## ')) {
+        items.push({ id: `heading-sec-${i}`, level: 2, text: trimmed.substring(3) });
+      } else if (trimmed.startsWith('# ')) {
+        items.push({ id: `heading-sec-${i}`, level: 1, text: trimmed.substring(2) });
+      }
+    });
+    return items;
+  }, [activeNote?.catatanDetail, activeNote?.ringkasan]);
+
+  const handleScrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Keyboard shortcut listener (ESC untuk keluar fullscreen / tutup modal)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen, onClose]);
 
   // 2. Fetch Hierarchy (Level N+1 direct children & ancestors chain)
   const fetchHierarchy = useCallback(
@@ -415,7 +507,7 @@ export function NoteReaderModal({
 
       if (trimmed.startsWith('### ')) {
         elements.push(
-          <h4 key={`h3-${idx}`} className="text-sm font-bold text-foreground mt-4 mb-1.5 flex items-center gap-1.5 text-primary">
+          <h4 id={`heading-sec-${idx}`} key={`h3-${idx}`} className="scroll-mt-6 text-sm font-bold text-foreground mt-4 mb-1.5 flex items-center gap-1.5 text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             {renderInline(trimmed.substring(4))}
           </h4>
@@ -424,7 +516,7 @@ export function NoteReaderModal({
       }
       if (trimmed.startsWith('## ')) {
         elements.push(
-          <h3 key={`h2-${idx}`} className="text-base font-extrabold text-foreground mt-5 mb-2 pb-1 border-b border-border/60">
+          <h3 id={`heading-sec-${idx}`} key={`h2-${idx}`} className="scroll-mt-6 text-base font-extrabold text-foreground mt-5 mb-2 pb-1 border-b border-border/60">
             {renderInline(trimmed.substring(3))}
           </h3>
         );
@@ -432,7 +524,7 @@ export function NoteReaderModal({
       }
       if (trimmed.startsWith('# ')) {
         elements.push(
-          <h2 key={`h1-${idx}`} className="text-lg font-black text-foreground mt-6 mb-2 text-primary">
+          <h2 id={`heading-sec-${idx}`} key={`h1-${idx}`} className="scroll-mt-6 text-lg font-black text-foreground mt-6 mb-2 text-primary">
             {renderInline(trimmed.substring(2))}
           </h2>
         );
@@ -442,8 +534,8 @@ export function NoteReaderModal({
       // Checklist: - [ ] atau - [x]
       if (trimmed.startsWith('- [ ] ') || trimmed.startsWith('* [ ] ')) {
         elements.push(
-          <div key={`chk-u-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-1">
-            <span className="mt-0.5 flex h-3.5 w-3.5 items-center justify-center rounded border border-border bg-card shrink-0" />
+          <div key={`chk-u-${idx}`} className="flex items-start gap-2 text-foreground/90 my-1 pl-1">
+            <span className="mt-1 flex h-3.5 w-3.5 items-center justify-center rounded border border-border bg-card shrink-0" />
             <span className="leading-relaxed">{renderInline(trimmed.substring(6))}</span>
           </div>
         );
@@ -451,8 +543,8 @@ export function NoteReaderModal({
       }
       if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ') || trimmed.startsWith('* [x] ')) {
         elements.push(
-          <div key={`chk-d-${idx}`} className="flex items-start gap-2 text-xs text-muted-foreground my-1 pl-1">
-            <span className="mt-0.5 flex h-3.5 w-3.5 items-center justify-center rounded bg-emerald-600 text-white shrink-0 text-[10px] font-bold">
+          <div key={`chk-d-${idx}`} className="flex items-start gap-2 text-muted-foreground my-1 pl-1">
+            <span className="mt-1 flex h-3.5 w-3.5 items-center justify-center rounded bg-emerald-600 text-white shrink-0 text-[10px] font-bold">
               ✓
             </span>
             <span className="leading-relaxed line-through">{renderInline(trimmed.substring(6))}</span>
@@ -463,8 +555,8 @@ export function NoteReaderModal({
 
       if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
         elements.push(
-          <div key={`li-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-2">
-            <span className="text-primary mt-1 text-[10px] font-black">&bull;</span>
+          <div key={`li-${idx}`} className="flex items-start gap-2 text-foreground/90 my-1 pl-2">
+            <span className="text-primary mt-1.5 text-[10px] font-black">&bull;</span>
             <span className="leading-relaxed">{renderInline(trimmed.substring(2))}</span>
           </div>
         );
@@ -474,8 +566,8 @@ export function NoteReaderModal({
       if (/^\d+\.\s/.test(trimmed)) {
         const numMatch = trimmed.match(/^(\d+)\.\s(.*)$/);
         elements.push(
-          <div key={`num-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-2">
-            <span className="font-mono text-primary font-bold text-[11px] shrink-0">{numMatch?.[1]}.</span>
+          <div key={`num-${idx}`} className="flex items-start gap-2 text-foreground/90 my-1 pl-2">
+            <span className="font-mono text-primary font-bold text-xs shrink-0 mt-0.5">{numMatch?.[1]}.</span>
             <span className="leading-relaxed">{renderInline(numMatch?.[2] || '')}</span>
           </div>
         );
@@ -486,7 +578,7 @@ export function NoteReaderModal({
         elements.push(
           <blockquote
             key={`q-${idx}`}
-            className="my-3 border-l-3 border-amber-500 bg-amber-500/10 dark:bg-amber-500/5 px-3 py-2 text-xs text-foreground/90 italic rounded-r-md"
+            className="my-3 border-l-4 border-amber-500 bg-amber-500/10 dark:bg-amber-500/5 px-4 py-2.5 text-foreground/90 italic rounded-r-md leading-relaxed"
           >
             {renderInline(trimmed.substring(2))}
           </blockquote>
@@ -499,7 +591,7 @@ export function NoteReaderModal({
       }
 
       elements.push(
-        <p key={`p-${idx}`} className="text-xs leading-relaxed text-foreground/85 my-1.5">
+        <p key={`p-${idx}`} className="leading-relaxed text-foreground/85 my-2">
           {renderInline(line)}
         </p>
       );
@@ -514,9 +606,17 @@ export function NoteReaderModal({
   )}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-6 overflow-hidden animate-in fade-in duration-200">
+    <div className={cn(
+      "fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs overflow-hidden animate-in fade-in duration-200",
+      isFullscreen ? "p-0" : "p-3 sm:p-6"
+    )}>
       {/* Modal Container */}
-      <div className="relative flex flex-col w-full max-w-5xl h-[92vh] max-h-[920px] rounded-2xl border border-border bg-card shadow-2xl overflow-hidden print:border-none print:shadow-none print:h-auto print:max-h-none print:overflow-visible">
+      <div className={cn(
+        "relative flex flex-col w-full bg-card shadow-2xl overflow-hidden print:border-none print:shadow-none print:h-auto print:max-h-none print:overflow-visible transition-all duration-200",
+        isFullscreen
+          ? "h-screen w-screen rounded-none border-none max-w-none max-h-none"
+          : "max-w-5xl h-[92vh] max-h-[920px] rounded-2xl border border-border"
+      )}>
         
         {/* ========================================================= */}
         {/* TOP BAR / READER HEADER                                   */}
@@ -559,10 +659,11 @@ export function NoteReaderModal({
                 size="sm"
                 onClick={() => onOpenSupportingDrawer(activeNote)}
                 className="h-8 text-xs gap-1.5 cursor-pointer text-indigo-600 dark:text-indigo-400 border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/15"
-                title="Buka Form Pendukung Dinamis"
+                title="Buka Form Pendukung Dinamis (Buka di Tab Baru)"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Form Pendukung</span>
+                <ExternalLink className="h-3 w-3 opacity-70 ml-0.5" />
               </Button>
             )}
 
@@ -596,6 +697,54 @@ export function NoteReaderModal({
             )}
 
             <div className="h-4 w-[1px] bg-border mx-0.5 hidden sm:block" />
+
+            {/* Font Size Selector */}
+            <div className="flex items-center bg-muted/80 p-0.5 rounded-lg border border-border/50 text-[10px] font-bold" title="Sesuaikan Ukuran Teks Bacaan">
+              <button
+                type="button"
+                onClick={() => handleChangeFontSize('normal')}
+                className={cn(
+                  "px-2 py-1 rounded transition-colors cursor-pointer",
+                  fontSize === 'normal' ? "bg-card text-primary shadow-2xs font-extrabold" : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Ukuran Standar"
+              >
+                A
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChangeFontSize('medium')}
+                className={cn(
+                  "px-2 py-1 rounded transition-colors cursor-pointer text-[11px]",
+                  fontSize === 'medium' ? "bg-card text-primary shadow-2xs font-extrabold" : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Ukuran Sedang (+15%)"
+              >
+                A+
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChangeFontSize('large')}
+                className={cn(
+                  "px-2 py-1 rounded transition-colors cursor-pointer text-xs",
+                  fontSize === 'large' ? "bg-card text-primary shadow-2xs font-extrabold" : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Ukuran Besar (+30%)"
+              >
+                A++
+              </button>
+            </div>
+
+            {/* Fullscreen / Zen Reading Mode Toggle */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className="h-8 w-8 text-xs cursor-pointer text-muted-foreground hover:text-foreground"
+              title={isFullscreen ? "Keluar Mode Layar Penuh (ESC)" : "Mode Layar Penuh (Zen Reader)"}
+            >
+              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </Button>
 
             {/* Secondary Utility Controls */}
             <Button
@@ -661,6 +810,14 @@ export function NoteReaderModal({
           </div>
         </header>
 
+        {/* Reading Progress Indicator */}
+        <div className="h-0.5 w-full bg-border/40 shrink-0 print:hidden overflow-hidden">
+          <div
+            className="h-full bg-primary transition-all duration-150 ease-out"
+            style={{ width: `${readingProgress}%` }}
+          />
+        </div>
+
         {/* ========================================================= */}
         {/* PRINT KOP SURAT FORMAL (ONLY VISIBLE ON PRINT)           */}
         {/* ========================================================= */}
@@ -692,43 +849,92 @@ export function NoteReaderModal({
         {/* ========================================================= */}
         <div className="flex-1 flex overflow-hidden">
           
-          {/* 1. LEFT SIDEBAR: DUAL-TAB NAV (TURUNAN LEVEL N+1 & SIBLINGS) */}
+          {/* 1. LEFT SIDEBAR: TRIPLE-TAB NAV (DAFTAR ISI, TURUNAN, SEJAJAR) */}
           {isSidebarOpen && (
             <aside className="w-64 sm:w-72 border-r border-border bg-muted/30 flex flex-col shrink-0 overflow-hidden print:hidden">
               {/* Tab Selector Header */}
               <div className="p-2 border-b border-border/80 bg-card/60">
-                <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-xl text-[11px] font-bold">
+                <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-xl text-[10px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setSidebarTab('OUTLINE')}
+                    className={`py-1.5 px-1 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                      sidebarTab === 'OUTLINE'
+                        ? 'bg-card text-primary shadow-xs font-black'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title="Daftar Isi / Sub-Judul Cepat"
+                  >
+                    <BookOpen className="h-3 w-3 shrink-0" />
+                    <span className="truncate">Isi ({outlineItems.length})</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setSidebarTab('CHILDREN')}
-                    className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`py-1.5 px-1 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
                       sidebarTab === 'CHILDREN'
                         ? 'bg-card text-primary shadow-xs font-black'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
+                    title="Catatan Sub Turunan"
                   >
-                    <GitFork className="h-3 w-3" />
-                    <span>Turunan ({childNotes.length})</span>
+                    <GitFork className="h-3 w-3 shrink-0" />
+                    <span className="truncate">Turunan ({childNotes.length})</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setSidebarTab('SIBLINGS')}
-                    className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`py-1.5 px-1 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
                       sidebarTab === 'SIBLINGS'
                         ? 'bg-card text-primary shadow-xs font-black'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
+                    title="Catatan Sejajar / Bab Lain"
                   >
-                    <Layers className="h-3 w-3" />
-                    <span>Sejajar ({chapterList.length})</span>
+                    <Layers className="h-3 w-3 shrink-0" />
+                    <span className="truncate">Sejajar ({chapterList.length})</span>
                   </button>
                 </div>
               </div>
 
               {/* Sidebar Content Area */}
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                {sidebarTab === 'CHILDREN' ? (
+                {sidebarTab === 'OUTLINE' ? (
+                  /* TAB 0: DAFTAR ISI HEADING DOKUMEN */
+                  <div className="space-y-1">
+                    <div className="px-1 pb-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+                        Daftar Isi Catatan ({outlineItems.length})
+                      </span>
+                    </div>
+                    {outlineItems.length > 0 ? (
+                      outlineItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleScrollToSection(item.id)}
+                          className={cn(
+                            "w-full text-left py-1.5 px-2 rounded-lg transition-all cursor-pointer hover:bg-card hover:text-primary flex items-center gap-1.5 border border-transparent hover:border-border/60",
+                            item.level === 1 ? "font-bold text-foreground text-xs" : item.level === 2 ? "pl-3 text-foreground/85 font-medium text-xs" : "pl-5 text-muted-foreground text-[11px]"
+                          )}
+                        >
+                          <span className={cn(
+                            "h-1.5 w-1.5 rounded-full shrink-0",
+                            item.level === 1 ? "bg-primary" : item.level === 2 ? "bg-primary/60" : "bg-muted-foreground/40"
+                          )} />
+                          <span className="truncate">{item.text}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-4 rounded-xl border border-dashed border-border/70 text-center text-xs text-muted-foreground space-y-1.5">
+                        <FileText className="h-5 w-5 text-muted-foreground/60 mx-auto" />
+                        <p className="text-[11px]">Belum ada sub-judul (#, ##, ###) pada catatan ini.</p>
+                      </div>
+                    )}
+                  </div>
+                ) : sidebarTab === 'CHILDREN' ? (
                   /* TAB 1: LIST TURUNAN LEVEL SELANJUTNYA */
                   <div className="space-y-1.5">
                     {/* Quick Button to Parent if not at Root */}
@@ -853,7 +1059,7 @@ export function NoteReaderModal({
           )}
 
           {/* 2. RIGHT PANE: THE DOCUMENT READER */}
-          <main ref={mainScrollRef} className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
+          <main ref={mainScrollRef} onScroll={handleDocumentScroll} className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
             
             {/* Top Hierarchical Breadcrumb Navigation */}
             {ancestorChain.length > 0 && (
@@ -959,7 +1165,7 @@ export function NoteReaderModal({
                   <FileText className="h-3.5 w-3.5 text-primary" />
                   <span>Uraian Dokumen & Spesifikasi Kerja</span>
                 </h3>
-                <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs leading-relaxed">
+                <div className={cn("rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs leading-relaxed", fontSizeClass)}>
                   {renderFormattedDetail(activeNote.catatanDetail || activeNote.ringkasan)}
                 </div>
               </div>

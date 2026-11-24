@@ -454,12 +454,11 @@ export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
   };
 
   const handleOpenSupportingDrawer = (note: JudulNote) => {
-    const path = `/forms/${encodeURIComponent(note.kdJudul)}`;
-    if (onNavigate) {
-      onNavigate(path);
-    } else {
-      window.location.href = path;
-    }
+    // Selalu buka Form Pendukung di tab baru agar posisi halaman/sub-catatan pengguna tidak hilang
+    const isPortal = window.location.pathname.startsWith('/noted');
+    const basePath = isPortal ? '/noted/forms' : '/forms';
+    const targetUrl = `${basePath}/${encodeURIComponent(note.kdJudul)}`;
+    window.open(targetUrl, '_blank');
   };
 
   const handleRefreshCurrentView = () => {

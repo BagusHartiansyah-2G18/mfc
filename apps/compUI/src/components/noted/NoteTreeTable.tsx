@@ -312,7 +312,7 @@ export function NoteTreeTable({
                             size="icon"
                             onClick={() => onOpenSupportingDrawer?.(item)}
                             className="h-7 w-7 text-muted-foreground hover:text-indigo-600 hover:bg-indigo-500/10 cursor-pointer"
-                            title="Buka Form Pendukung (Buku Kas, Ceklist, Berkas, Tim, Approval)"
+                            title="Buka Form Pendukung di Tab Baru (Buku Kas, Ceklist, Berkas, Tim, Approval)"
                           >
                             <SlidersHorizontal className="h-3.5 w-3.5" />
                           </Button>
