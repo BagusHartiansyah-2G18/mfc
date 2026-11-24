@@ -67,6 +67,25 @@ export class FlexibleFormsService {
 
     return {
       success: true,
+      note: {
+        id: note.id,
+        kdJudul: note.kdJudul,
+        judul: note.judul,
+        ringkasan: note.ringkasan,
+        catatanDetail: note.catatanDetail,
+        tingkat: note.tingkat,
+        status: note.status,
+        stage: note.stage,
+        priority: note.priority,
+        picName: note.picName,
+        dueDate: note.dueDate,
+        progress: note.progress,
+        targetBudget: note.targetBudget,
+        realizedBudget: note.realizedBudget,
+        tags: note.tags,
+        sharingMode: note.sharingMode,
+        createdAt: note.createdAt,
+      },
       data: forms.map((f) => ({
         ...f,
         responseCount: f._count.values,
@@ -148,8 +167,33 @@ export class FlexibleFormsService {
       throw new NotFoundException(`Formulir ID ${formId} tidak ditemukan.`);
     }
 
+    const note = await this.prisma.judulNote.findFirst({
+      where: { kdJudul },
+    });
+
     return {
       success: true,
+      note: note
+        ? {
+            id: note.id,
+            kdJudul: note.kdJudul,
+            judul: note.judul,
+            ringkasan: note.ringkasan,
+            catatanDetail: note.catatanDetail,
+            tingkat: note.tingkat,
+            status: note.status,
+            stage: note.stage,
+            priority: note.priority,
+            picName: note.picName,
+            dueDate: note.dueDate,
+            progress: note.progress,
+            targetBudget: note.targetBudget,
+            realizedBudget: note.realizedBudget,
+            tags: note.tags,
+            sharingMode: note.sharingMode,
+            createdAt: note.createdAt,
+          }
+        : null,
       data: {
         ...form,
         responseCount: form._count.values,

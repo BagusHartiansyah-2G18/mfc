@@ -13,7 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { authFetch } from '@org/auth';
-import type { DataForm } from '../types';
+import type { DataForm, JudulNote } from '../types';
 import { WorkspaceNav } from '../WorkspaceNav';
 import { NoteDynamicFormTable } from './NoteDynamicFormTable';
 import { NoteDynamicFormRenderer } from './NoteDynamicFormRenderer';
@@ -47,6 +47,7 @@ export function NoteFormResponsesPage({
   onNavigate,
 }: NoteFormResponsesPageProps) {
   const [form, setForm] = useState<DataForm | null>(null);
+  const [note, setNote] = useState<JudulNote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>(() => readInitialTab(initialTab));
@@ -69,6 +70,18 @@ export function NoteFormResponsesPage({
         throw new Error(json.message || 'Gagal memuat detail formulir.');
       }
       setForm(json.data);
+      if (json.note) {
+        setNote(json.note);
+      } else {
+        try {
+          const subRes = await authFetch(`${apiBaseUrl}/notes/sub?kdJudul=${encodeURIComponent(kdJudul)}&tingkat=1`);
+          if (subRes.ok) {
+            const subJson = await subRes.json();
+            const payload = subJson.data || subJson;
+            if (payload.current) setNote(payload.current);
+          }
+        } catch {}
+      }
     } catch (err: any) {
       setError(err.message || 'Gagal memuat detail formulir.');
     } finally {
@@ -108,7 +121,11 @@ export function NoteFormResponsesPage({
             <span className="font-mono text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">
               #{kdJudul}
             </span>
-            <h1 className="text-lg font-bold text-foreground line-clamp-1">
+            <span className="text-xs font-semibold text-muted-foreground truncate max-w-[200px]" title={note?.judul}>
+              {note?.judul || 'Catatan'}
+            </span>
+            <span className="text-muted-foreground/60">&bull;</span>
+            <h1 className="text-base sm:text-lg font-bold text-foreground line-clamp-1">
               {form?.tujuan || 'Rekap Respon Form'}
             </h1>
             {form?.isLocked && (

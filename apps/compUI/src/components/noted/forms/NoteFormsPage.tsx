@@ -14,11 +14,19 @@ import {
   Globe,
   Users,
   ArrowLeft,
+  BookOpen,
+  Calendar,
+  Clock,
+  User,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
 import { authFetch } from '@org/auth';
-import type { DataForm } from '../types';
+import type { DataForm, JudulNote } from '../types';
 import { WorkspaceNav } from '../WorkspaceNav';
 import { NoteDynamicFormBuilder } from './NoteDynamicFormBuilder';
+import { NoteStatusBadge, NoteStageBadge, NotePriorityBadge } from '../NoteStatusBadge';
+import { NoteReaderModal } from '../NoteReaderModal';
 
 interface NoteFormsPageProps {
   kdJudul: string;
@@ -29,7 +37,7 @@ interface NoteFormsPageProps {
 
 interface FormsResponse {
   success: boolean;
-  note?: { kdJudul: string; judul: string; tingkat: number } | null;
+  note?: JudulNote | null;
   data: DataForm[];
   total?: number;
   page?: number;
@@ -42,7 +50,7 @@ export function NoteFormsPage({
   onNavigate,
 }: NoteFormsPageProps) {
   const [forms, setForms] = useState<DataForm[]>([]);
-  const [note, setNote] = useState<FormsResponse['note']>(null);
+  const [note, setNote] = useState<JudulNote | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -54,6 +62,7 @@ export function NoteFormsPage({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+  const [isReaderOpen, setIsReaderOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const go = (path: string) => {
@@ -90,7 +99,21 @@ export function NoteFormsPage({
         throw new Error((json as any).message || 'Gagal memuat daftar form.');
       }
       setForms(json.data || []);
-      setNote(json.note || null);
+      if (json.note) {
+        setNote(json.note as any);
+      } else {
+        // Fallback: fetch note info directly from /notes/sub?kdJudul=...
+        try {
+          const subRes = await authFetch(`${apiBaseUrl}/notes/sub?kdJudul=${encodeURIComponent(kdJudul)}&tingkat=1`);
+          if (subRes.ok) {
+            const subJson = await subRes.json();
+            const payload = subJson.data || subJson;
+            if (payload.current) setNote(payload.current);
+          }
+        } catch {
+          // ignore fallback error
+        }
+      }
       setTotal(json.total ?? json.data?.length ?? 0);
     } catch (err: any) {
       setError(err.message || 'Gagal memuat daftar form pendukung.');
@@ -134,33 +157,26 @@ export function NoteFormsPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2 min-w-0">
+      {/* 1. TOP BAR: BREADCRUMB & UTILITY BUTTONS */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => go('/')}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-colors bg-muted/60 hover:bg-muted px-2.5 py-1.5 rounded-lg"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Kembali ke Catatan
           </button>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">
-              #{kdJudul}
-            </span>
-            <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-primary" /> Form Pendukung
-            </h1>
-          </div>
-          <p className="text-xs text-muted-foreground line-clamp-1">
-            {note?.judul || 'Daftar formulir fleksibel pada catatan ini'}
-          </p>
+          <span className="text-muted-foreground/60 text-xs">/</span>
+          <span className="font-mono text-xs font-bold text-primary">#{kdJudul}</span>
+          <span className="text-xs text-muted-foreground font-medium">Form Pendukung</span>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             type="button"
             onClick={() => setIsBuilderOpen(true)}
-            className="h-8 text-xs font-semibold gap-1.5"
+            className="h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
           >
             <Plus className="h-4 w-4" /> Buat Form Baru
           </Button>
@@ -169,7 +185,7 @@ export function NoteFormsPage({
             variant="outline"
             size="sm"
             onClick={fetchForms}
-            className="h-8 text-xs gap-1.5"
+            className="h-8 text-xs gap-1.5 cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Segarkan
           </Button>
@@ -178,10 +194,90 @@ export function NoteFormsPage({
             variant="outline"
             size="sm"
             onClick={() => go(kdJudul ? `/documents?kdJudul=${encodeURIComponent(kdJudul)}` : '/documents')}
-            className="h-8 text-xs gap-1.5"
+            className="h-8 text-xs gap-1.5 cursor-pointer"
           >
             <ShieldCheck className="h-3.5 w-3.5" /> Dokumen Bukti
           </Button>
+        </div>
+      </div>
+
+      {/* 2. KARTU INFORMASI CATATAN TERKAIT (NOTE CONTEXT BANNER) */}
+      <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs transition-all hover:shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2 min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-xs font-black bg-primary/10 text-primary px-2.5 py-0.5 rounded-md border border-primary/20">
+                #{note?.kdJudul || kdJudul}
+              </span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                {note?.tingkat !== undefined
+                  ? note.tingkat === 0
+                    ? 'Catatan Induk (Tingkat 0)'
+                    : `Sub-Tahap Tingkat ${note.tingkat}`
+                  : 'Memuat Tingkat...'}
+              </span>
+              {note?.stage && <NoteStageBadge stage={note.stage} />}
+              {note?.priority && <NotePriorityBadge priority={note.priority} />}
+              {note?.status && <NoteStatusBadge status={note.status} />}
+              {note?.sharingMode === 'PUBLIC' && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  Publik
+                </span>
+              )}
+            </div>
+
+            <h2 className="text-base sm:text-lg font-black text-foreground tracking-tight line-clamp-2">
+              {note?.judul || (isLoading ? 'Memuat informasi catatan...' : `Catatan #${kdJudul}`)}
+            </h2>
+
+            {(note?.ringkasan || note?.catatanDetail) && (
+              <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                {note.ringkasan || note.catatanDetail}
+              </p>
+            )}
+
+            <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap pt-1">
+              <span className="flex items-center gap-1">
+                <User className="h-3.5 w-3.5 text-primary" />
+                <span>PIC:</span>
+                <span className="font-bold text-foreground">{note?.picName || 'Principal Administrator'}</span>
+              </span>
+              {note?.dueDate && (
+                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Tenggat: {new Date(note.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                </span>
+              )}
+              {note?.progress !== undefined && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Progres:</span>
+                  <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all"
+                      style={{ width: `${note.progress}%` }}
+                    />
+                  </div>
+                  <span className="font-bold text-[11px] text-foreground">{note.progress}%</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0">
+            {note && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsReaderOpen(true)}
+                className="h-8 text-xs gap-1.5 cursor-pointer text-indigo-600 dark:text-indigo-400 border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/15"
+                title="Buka Dokumen Lengkap di Mode Baca"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Mode Baca</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -418,6 +514,15 @@ export function NoteFormsPage({
         apiBaseUrl={apiBaseUrl}
         onSaved={fetchForms}
       />
+
+      {note && (
+        <NoteReaderModal
+          isOpen={isReaderOpen}
+          onClose={() => setIsReaderOpen(false)}
+          note={note}
+          apiBaseUrl={apiBaseUrl}
+        />
+      )}
     </div>
   );
 }

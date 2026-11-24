@@ -20,6 +20,9 @@ import {
   Trash2,
   ArchiveX,
   CheckCircle2,
+  Info,
+  Edit3,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@org/ui';
 import { useAuth, setSession, authFetch } from '@org/auth';
@@ -885,6 +888,42 @@ export function NotedView({ apiBaseUrl, onNavigate }: NotedViewProps) {
               </span>
             )}
           </div>
+
+          {/* Action Buttons Guide / Legend */}
+          {mainTab !== 'PUBLIC_CATALOG' && (
+            <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground bg-muted/30 border border-border/60 px-3 py-1.5 rounded-xl flex-wrap">
+              <span className="font-bold text-foreground flex items-center gap-1">
+                <Info className="h-3.5 w-3.5 text-primary" /> Petunjuk Tombol Aksi:
+              </span>
+              <span className="inline-flex items-center gap-1" title="Buka Dokumen Lengkap & Mode Baca">
+                <Eye className="h-3 w-3 text-primary" /> <span>Mode Baca</span>
+              </span>
+              <span className="text-border">&bull;</span>
+              <span className="inline-flex items-center gap-1" title="Buka Form Pendukung (Tab Baru)">
+                <SlidersHorizontal className="h-3 w-3 text-indigo-500" /> <span>Form Pendukung</span>
+              </span>
+              <span className="text-border">&bull;</span>
+              <span className="inline-flex items-center gap-1" title="Form Upload Berkas Media">
+                <Upload className="h-3 w-3 text-emerald-500" /> <span>Upload</span>
+              </span>
+              <span className="text-border">&bull;</span>
+              <span className="inline-flex items-center gap-1" title="Kelola Anggota Tim & Kolaborator">
+                <Users className="h-3 w-3 text-primary" /> <span>Atur Tim</span>
+              </span>
+              <span className="text-border">&bull;</span>
+              <span className="inline-flex items-center gap-1" title="Edit Data Catatan">
+                <Edit3 className="h-3 w-3 text-amber-500" /> <span>Edit</span>
+              </span>
+              <span className="text-border">&bull;</span>
+              <span className="inline-flex items-center gap-1" title="Hapus Catatan">
+                <Trash2 className="h-3 w-3 text-rose-500" /> <span>Hapus</span>
+              </span>
+              <span className="text-border">&bull;</span>
+              <span className="inline-flex items-center gap-1" title="Jelajahi Sub-Catatan Turunan">
+                <Layers className="h-3 w-3 text-foreground" /> <span>Hirarki Turunan</span>
+              </span>
+            </div>
+          )}
 
           {/* Grid Content or Empty State */}
           {(() => {

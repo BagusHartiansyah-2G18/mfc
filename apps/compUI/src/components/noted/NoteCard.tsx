@@ -143,7 +143,7 @@ export function NoteCard({
           )}
         </div>
 
-        {/* Collaborator Avatars & Quick Tools */}
+        {/* Collaborator Avatars & Quick Stats */}
         <div className="pt-2.5 border-t border-border/40">
           <div className="flex items-center justify-between gap-2">
             {/* Team Stack */}
@@ -175,78 +175,115 @@ export function NoteCard({
               </span>
             </button>
 
-            {/* Quick Action Badges */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Form Pendukung Badge */}
-              <button
-                type="button"
-                onClick={() => onOpenSupportingDrawer?.(note)}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/10 transition-colors px-2 py-0.5 rounded-md border border-primary/25 cursor-pointer"
-                title={`Buka Form Pendukung: ${trxCount} Transaksi, ${checklistCount} Ceklist`}
-              >
-                <SlidersHorizontal className="h-3 w-3" />
-                <span>Pendukung</span>
-                {(trxCount > 0 || checklistCount > 0) && (
-                  <span className="bg-primary text-primary-foreground text-[9px] px-1 rounded-full font-bold">
-                    {trxCount + checklistCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Form Upload Badge */}
-              <button
-                type="button"
-                onClick={() => onManageMedia?.(note)}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors px-2 py-0.5 rounded-md border border-emerald-500/25 cursor-pointer"
-                title={`Form Upload & Berkas (${fileCount} Berkas Terlampir)`}
-              >
-                <Upload className="h-3 w-3" />
-                <span>Upload</span>
-                {fileCount > 0 && (
-                  <span className="bg-emerald-600 text-white text-[9px] px-1 rounded-full font-bold">
-                    {fileCount}
-                  </span>
-                )}
-              </button>
+            {/* Quick Metadata Stats */}
+            <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground">
+              {(trxCount > 0 || checklistCount > 0) && (
+                <span
+                  className="inline-flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-md font-semibold text-indigo-600 dark:text-indigo-400"
+                  title={`${trxCount} Transaksi, ${checklistCount} Ceklist`}
+                >
+                  <SlidersHorizontal className="h-3 w-3" />
+                  <span>{trxCount + checklistCount}</span>
+                </span>
+              )}
+              {fileCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-md font-semibold text-emerald-600 dark:text-emerald-400"
+                  title={`${fileCount} Berkas Terlampir`}
+                >
+                  <Upload className="h-3 w-3" />
+                  <span>{fileCount}</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Card Action Footer */}
-      <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1">
+      {/* Card Action Footer: Clean Icon-Only Action Buttons with Rich Tooltips */}
+      <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap">
           {onView && (
             <Button
-              variant="ghost"
-              size="sm"
+              variant="outline"
+              size="icon"
               onClick={() => onView(note)}
-              className="h-8 px-2 text-xs text-primary font-bold hover:bg-primary/10 cursor-pointer"
-              title="Buka Lembar Dokumen & Mode Baca"
+              className="h-8 w-8 text-primary hover:bg-primary/10 border-primary/30 cursor-pointer shadow-2xs"
+              title="Mode Baca: Buka lembar dokumen & baca rinci"
             >
-              <Eye className="h-3.5 w-3.5 mr-1 text-primary" />
-              Baca
+              <Eye className="h-4 w-4" />
             </Button>
           )}
+
+          {onOpenSupportingDrawer && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onOpenSupportingDrawer(note)}
+              className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 border-indigo-500/30 cursor-pointer shadow-2xs relative"
+              title={`Form Pendukung: Transaksi, Ceklist, Dinamis (${trxCount + checklistCount} data) - Buka di Tab Baru`}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {(trxCount > 0 || checklistCount > 0) && (
+                <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[8px] h-3.5 min-w-3.5 px-0.5 rounded-full flex items-center justify-center font-bold">
+                  {trxCount + checklistCount}
+                </span>
+              )}
+            </Button>
+          )}
+
+          {onManageMedia && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onManageMedia(note)}
+              className="h-8 w-8 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 border-emerald-500/30 cursor-pointer shadow-2xs relative"
+              title={`Form Upload: Berkas & Media Terlampir (${fileCount} berkas)`}
+            >
+              <Upload className="h-4 w-4" />
+              {fileCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[8px] h-3.5 min-w-3.5 px-0.5 rounded-full flex items-center justify-center font-bold">
+                  {fileCount}
+                </span>
+              )}
+            </Button>
+          )}
+
+          {onManageMembers && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onManageMembers(note)}
+              className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 border-border/80 cursor-pointer shadow-2xs relative"
+              title={`Kelola Tim: Kolaborator & RACI (${collaboratorCount} anggota)`}
+            >
+              <Users className="h-4 w-4" />
+              {collaboratorCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] h-3.5 min-w-3.5 px-0.5 rounded-full flex items-center justify-center font-bold">
+                  {collaboratorCount}
+                </span>
+              )}
+            </Button>
+          )}
+
           <Button
-            variant="ghost"
-            size="sm"
+            variant="outline"
+            size="icon"
             onClick={() => onEdit(note)}
-            className="h-8 px-2 text-xs text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 cursor-pointer"
-            title="Perbarui Catatan"
+            className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 hover:border-amber-500/40 border-border/80 cursor-pointer shadow-2xs"
+            title="Edit Catatan: Ubah informasi dan dokumen catatan"
           >
-            <Edit3 className="h-3.5 w-3.5 mr-1" />
-            Edit
+            <Edit3 className="h-4 w-4" />
           </Button>
+
           <Button
-            variant="ghost"
-            size="sm"
+            variant="outline"
+            size="icon"
             onClick={() => onDelete(note)}
-            className="h-8 px-2 text-xs text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer"
-            title="Hapus Catatan Beserta Turunannya"
+            className="h-8 w-8 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 hover:border-rose-500/40 border-border/80 cursor-pointer shadow-2xs"
+            title="Hapus Catatan: Hapus catatan beserta seluruh turunannya"
           >
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
-            Hapus
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
 
@@ -254,11 +291,11 @@ export function NoteCard({
           variant="default"
           size="sm"
           onClick={() => onEnterSub(note)}
-          className="h-8 text-xs font-semibold gap-1.5 shadow-xs bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
-          title="Buka Hirarki Sub-Catatan"
+          className="h-8 px-2.5 text-xs font-semibold gap-1 shadow-xs bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shrink-0"
+          title="Buka Hirarki Sub-Catatan Turunan"
         >
           <Layers className="h-3.5 w-3.5" />
-          <span>Sub-Catatan</span>
+          <span className="hidden sm:inline">Turunan</span>
           <ArrowRightCircle className="h-3.5 w-3.5 ml-0.5 opacity-80" />
         </Button>
       </div>
