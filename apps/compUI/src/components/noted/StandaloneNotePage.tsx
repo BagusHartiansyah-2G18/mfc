@@ -274,6 +274,190 @@ export function StandaloneNotePage({
   const completedChecklistCount = (note?.checklists || []).filter((c) => c.isCompleted).length;
   const totalChecklistCount = (note?.checklists || []).length;
 
+  const renderFormattedDetail = (content: string) => {
+    if (!content || !content.trim()) return null;
+
+    const renderInline = (text: string) => {
+      if (!text) return null;
+      const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+      const parts = [];
+      let lastIdx = 0;
+      let match;
+      while ((match = linkRegex.exec(text)) !== null) {
+        if (match.index > lastIdx) parts.push(text.substring(lastIdx, match.index));
+        parts.push(
+          <a key={`l-${match.index}`} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
+            {match[1]}
+          </a>
+        );
+        lastIdx = linkRegex.lastIndex;
+      }
+      if (lastIdx < text.length) parts.push(text.substring(lastIdx));
+
+      return parts.map((part, pIdx) => {
+        if (typeof part !== 'string') return part;
+        const codeParts = part.split(/`([^`]+)`/g);
+        return codeParts.map((cp, cpIdx) => {
+          if (cpIdx % 2 === 1) {
+            return (
+              <code key={cpIdx} className="font-mono text-[11px] bg-muted px-1.5 py-0.5 rounded text-primary font-bold border border-border/60">
+                {cp}
+              </code>
+            );
+          }
+          let inner: React.ReactNode = cp;
+          if (typeof inner === 'string' && inner.includes('**')) {
+            const boldParts = inner.split(/\*\*([^*]+)\*\*/g);
+            inner = boldParts.map((bp, bpIdx) => (bpIdx % 2 === 1 ? <strong key={bpIdx} className="font-bold text-foreground">{bp}</strong> : bp));
+          }
+          return <span key={cpIdx}>{inner}</span>;
+        });
+      });
+    };
+
+    const lines = content.split('\n');
+    let inTable = false;
+    let tableHeaders: string[] = [];
+    let tableRows: string[][] = [];
+    const elements: React.ReactNode[] = [];
+
+    const flushTable = (k: string) => {
+      if (inTable && tableHeaders.length > 0) {
+        elements.push(
+          <div key={k} className="my-3 overflow-x-auto rounded-xl border border-border/70 shadow-2xs">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted/70 text-[11px] font-bold text-foreground uppercase border-b border-border/70">
+                <tr>
+                  {tableHeaders.map((h, i) => (
+                    <th key={i} className="py-2.5 px-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40 text-[11px]">
+                {tableRows.map((row, rIdx) => (
+                  <tr key={rIdx} className="hover:bg-muted/30 transition-colors">
+                    {row.map((cell, cIdx) => (
+                      <td key={cIdx} className="py-2.5 px-3 text-foreground/90">{renderInline(cell)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        inTable = false;
+        tableHeaders = [];
+        tableRows = [];
+      }
+    };
+
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        const parts = trimmed.split('|').map((p) => p.trim()).filter((_, i, arr) => i > 0 && i < arr.length - 1);
+        if (parts.every((p) => /^:?-+:?$/.test(p))) return;
+        if (!inTable) {
+          inTable = true;
+          tableHeaders = parts;
+        } else {
+          tableRows.push(parts);
+        }
+        return;
+      } else if (inTable) {
+        flushTable(`tbl-${idx}`);
+      }
+
+      if (!trimmed) {
+        elements.push(<div key={`b-${idx}`} className="h-3" />);
+        return;
+      }
+      if (trimmed === '---' || trimmed === '***') {
+        elements.push(<hr key={`hr-${idx}`} className="my-4 border-t border-border/80" />);
+        return;
+      }
+      if (trimmed.startsWith('### ')) {
+        elements.push(
+          <h4 key={`h3-${idx}`} className="text-sm font-bold text-foreground mt-4 mb-1.5 flex items-center gap-1.5 text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            {renderInline(trimmed.substring(4))}
+          </h4>
+        );
+        return;
+      }
+      if (trimmed.startsWith('## ')) {
+        elements.push(
+          <h3 key={`h2-${idx}`} className="text-base font-extrabold text-foreground mt-5 mb-2 pb-1 border-b border-border/60">
+            {renderInline(trimmed.substring(3))}
+          </h3>
+        );
+        return;
+      }
+      if (trimmed.startsWith('# ')) {
+        elements.push(
+          <h2 key={`h1-${idx}`} className="text-lg font-black text-foreground mt-6 mb-2 text-primary">
+            {renderInline(trimmed.substring(2))}
+          </h2>
+        );
+        return;
+      }
+      if (trimmed.startsWith('- [ ] ') || trimmed.startsWith('* [ ] ')) {
+        elements.push(
+          <div key={`chk-u-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-1">
+            <span className="mt-0.5 flex h-3.5 w-3.5 items-center justify-center rounded border border-border bg-card shrink-0" />
+            <span className="leading-relaxed">{renderInline(trimmed.substring(6))}</span>
+          </div>
+        );
+        return;
+      }
+      if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ') || trimmed.startsWith('* [x] ')) {
+        elements.push(
+          <div key={`chk-d-${idx}`} className="flex items-start gap-2 text-xs text-muted-foreground my-1 pl-1">
+            <span className="mt-0.5 flex h-3.5 w-3.5 items-center justify-center rounded bg-emerald-600 text-white shrink-0 text-[10px] font-bold">✓</span>
+            <span className="leading-relaxed line-through">{renderInline(trimmed.substring(6))}</span>
+          </div>
+        );
+        return;
+      }
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        elements.push(
+          <div key={`li-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-2">
+            <span className="text-primary mt-1 text-[10px] font-black">&bull;</span>
+            <span className="leading-relaxed">{renderInline(trimmed.substring(2))}</span>
+          </div>
+        );
+        return;
+      }
+      if (/^\d+\.\s/.test(trimmed)) {
+        const numMatch = trimmed.match(/^(\d+)\.\s(.*)$/);
+        elements.push(
+          <div key={`num-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-2">
+            <span className="font-mono text-primary font-bold text-[11px] shrink-0">{numMatch?.[1]}.</span>
+            <span className="leading-relaxed">{renderInline(numMatch?.[2] || '')}</span>
+          </div>
+        );
+        return;
+      }
+      if (trimmed.startsWith('> ')) {
+        elements.push(
+          <blockquote key={`q-${idx}`} className="my-3 border-l-3 border-amber-500 bg-amber-500/10 dark:bg-amber-500/5 px-3 py-2 text-xs text-foreground/90 italic rounded-r-md">
+            {renderInline(trimmed.substring(2))}
+          </blockquote>
+        );
+        return;
+      }
+      if (trimmed.startsWith('```')) return;
+
+      elements.push(
+        <p key={`p-${idx}`} className="text-xs leading-relaxed text-foreground/85 my-1.5">
+          {renderInline(line)}
+        </p>
+      );
+    });
+
+    flushTable(`tbl-end`);
+    return elements;
+  };
+
   return (
     <div className="min-h-screen bg-muted/20 text-foreground flex flex-col">
       {/* ========================================================= */}
@@ -582,8 +766,8 @@ export function StandaloneNotePage({
                     <FileText className="h-4 w-4 text-primary" />
                     <span>Uraian & Spesifikasi Teknis Dokumen</span>
                   </h3>
-                  <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed whitespace-pre-wrap rounded-2xl bg-muted/20 border border-border/50 p-5">
-                    {note.catatanDetail}
+                  <div className="rounded-2xl bg-card border border-border/70 p-5 shadow-xs leading-relaxed">
+                    {renderFormattedDetail(note.catatanDetail)}
                   </div>
                 </div>
               ) : null}

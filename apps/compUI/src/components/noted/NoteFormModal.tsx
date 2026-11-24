@@ -9,6 +9,7 @@ import {
   Button,
   Input,
   Textarea,
+  RichTextEditor,
 } from '@org/ui';
 import {
   PlusCircle,
@@ -23,6 +24,13 @@ import {
   Send,
   UserCheck,
   Users,
+  FileText,
+  SlidersHorizontal,
+  Globe,
+  Lock,
+  ArrowRight,
+  ArrowLeft,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth, authFetch } from '@org/auth';
 import { type JudulNote, type NoteFormData } from './types';
@@ -32,7 +40,7 @@ const PRESET_COLLABORATORS = [
   { id: 'usr-2', name: 'Sarah Jenkins', email: 'sarah.j@bgs-software.id', role: 'Project Manager / Approver' },
   { id: 'usr-3', name: 'Budi Pratama', email: 'budi.p@bgs-software.id', role: 'UI/UX Designer' },
   { id: 'usr-4', name: 'Alex Wong', email: 'alex.w@bgs-software.id', role: 'Lead Frontend Engineer' },
-  { id: 'usr-5', name: 'Rina Melati', email: 'rina.m@bgs-software.id', role: 'QA & Security Engineer' },
+  { id: 'usr-5', name: 'Dewi Lestari', email: 'dewi.l@bgs-software.id', role: 'QA & Compliance Specialist' },
 ];
 
 interface NoteFormModalProps {
@@ -60,20 +68,22 @@ export function NoteFormModal({
   const defaultCreatorName = session?.name || session?.username || session?.email || 'Super Administrator';
   const defaultCreatorId = session?.id || 'usr-1';
 
+  // State Tab Navigasi Form yang Nyaman & Terstruktur
+  const [formTab, setFormTab] = useState<'info' | 'execution' | 'settings'>('info');
+
   const [judul, setJudul] = useState('');
-  const [ringkasan, setRingkasan] = useState('');
-  const [catatanDetail, setCatatanDetail] = useState('');
+  const [deskripsi, setDeskripsi] = useState('');
   const [status, setStatus] = useState('IN_PROGRESS');
   const [priority, setPriority] = useState('MEDIUM');
   const [stage, setStage] = useState('DEVELOP');
   const [progress, setProgress] = useState(0);
 
-  // Requirement 3: Bobot, Target, dan Batas Waktu default-nya null (kosong)
+  // Bobot, Target, dan Batas Waktu default-nya null (kosong)
   const [weight, setWeight] = useState<number | string>('');
   const [targetBudget, setTargetBudget] = useState<number | string>('');
   const [dueDate, setDueDate] = useState('');
 
-  // Requirement 2 & 3: Penanggung Jawab (PIC) default user pembuat, opsi delegasi ke rekan
+  // Penanggung Jawab (PIC) & Delegasi
   const [assignMode, setAssignMode] = useState<'SELF' | 'FRIEND'>('SELF');
   const [picName, setPicName] = useState(defaultCreatorName);
   const [picId, setPicId] = useState(defaultCreatorId);
@@ -123,8 +133,7 @@ export function NoteFormModal({
   useEffect(() => {
     if (editingNote) {
       setJudul(editingNote.judul || '');
-      setRingkasan(editingNote.ringkasan || '');
-      setCatatanDetail(editingNote.catatanDetail || '');
+      setDeskripsi(editingNote.catatanDetail || editingNote.ringkasan || '');
       setStatus(editingNote.status || 'IN_PROGRESS');
       setPriority(editingNote.priority || 'MEDIUM');
       setStage(editingNote.stage || 'DEVELOP');
@@ -147,23 +156,21 @@ export function NoteFormModal({
       setSharingMode(editingNote.sharingMode === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE');
     } else {
       setJudul('');
-      setRingkasan('');
-      setCatatanDetail('');
+      setDeskripsi('');
       setStatus('IN_PROGRESS');
       setPriority('MEDIUM');
       setStage(currentTingkat === 0 ? 'ANALISIS' : 'DEVELOP');
       setProgress(0);
-      // Default: Null untuk Bobot, Target, dan Batas Waktu
       setWeight('');
       setTargetBudget('');
       setDueDate('');
-      // Default: User pembuat sebagai Penanggung Jawab
       setPicName(defaultCreatorName);
       setPicId(defaultCreatorId);
       setAssignMode('SELF');
       setTags('');
       setSharingMode('PRIVATE');
     }
+    setFormTab('info');
     setError(null);
   }, [editingNote, isOpen, currentTingkat, defaultCreatorName, defaultCreatorId]);
 
@@ -175,11 +182,13 @@ export function NoteFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!judul.trim()) {
+      setFormTab('info');
       setError('Judul catatan wajib diisi.');
       return;
     }
-    if (!ringkasan.trim()) {
-      setError('Ringkasan catatan wajib diisi.');
+    if (!deskripsi.trim()) {
+      setFormTab('info');
+      setError('Deskripsi catatan wajib diisi.');
       return;
     }
 
@@ -188,8 +197,8 @@ export function NoteFormModal({
       setError(null);
       await onSubmit({
         judul: judul.trim(),
-        ringkasan: ringkasan.trim(),
-        catatanDetail: catatanDetail.trim() || undefined,
+        ringkasan: deskripsi.trim(),
+        catatanDetail: deskripsi.trim(),
         tingkat: isEditing ? editingNote!.tingkat : currentTingkat,
         kdJudul: isEditing ? editingNote!.kdJudul : parentNote?.kdJudul,
         kdMember: isEditing ? editingNote!.kdMember : parentNote?.kdMember,
@@ -228,63 +237,36 @@ export function NoteFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-2xl border-border bg-card shadow-2xl">
-        {/* Header */}
-        <DialogHeader className="p-4 border-b border-border/80 bg-muted/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                {isEditing ? <Edit3 className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+      <DialogContent className="max-w-5xl p-0 overflow-hidden rounded-2xl border-border bg-card shadow-2xl flex flex-col max-h-[92vh]">
+        
+        {/* ========================================================= */}
+        {/* MODAL HEADER                                              */}
+        {/* ========================================================= */}
+        <DialogHeader className="p-4 border-b border-border/80 bg-muted/30 shrink-0">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-2xs">
+                {isEditing ? <Edit3 className="h-4.5 w-4.5" /> : <PlusCircle className="h-4.5 w-4.5" />}
               </span>
               <div>
-                <DialogTitle className="text-base font-bold text-foreground">
-                  {isEditing ? 'Ubah Rincian Catatan' : 'Tambah Catatan Baru'}
+                <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                  <span>{isEditing ? 'Ubah Rincian Catatan' : 'Tambah Catatan Baru'}</span>
+                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
+                    Tingkat {childTingkat}
+                  </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
                   {isEditing
                     ? `Perbarui data catatan #${editingNote?.kdJudul} (Tingkat ${editingNote?.tingkat})`
                     : parentNote
                     ? `Membuat sub-catatan tingkat ${currentTingkat} di bawah induk #${parentNote.kdJudul}`
-                    : 'Membuat catatan proyek induk (Tingkat 0)'}
+                    : 'Membuat inisiatif / catatan proyek induk (Tingkat 0)'}
                 </DialogDescription>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
-                Tingkat {childTingkat}
-              </span>
               <NoteStatusBadge status={status} />
-            </div>
-          </div>
-        </DialogHeader>
-
-        {/* Error Notification */}
-        {error && (
-          <div className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
-            {error}
-          </div>
-        )}
-
-        {/* Body Content */}
-        <div className="p-4 sm:p-5 overflow-y-auto max-h-[78vh] space-y-4">
-          <form id="note-form" onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Auto-Code & Parent Inspector Block */}
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Hash className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-muted-foreground">Preview Kode:</span>
-                <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                  #{autoCodePreview}
-                </span>
-                {parentNote && (
-                  <span className="text-muted-foreground text-[11px] truncate max-w-xs">
-                    (Induk: #{parentNote.kdJudul} - {parentNote.judul})
-                  </span>
-                )}
-              </div>
-
               {!isEditing && parentNote && childTingkat === 1 && onScaffoldStages && (
                 <Button
                   type="button"
@@ -292,63 +274,151 @@ export function NoteFormModal({
                   size="sm"
                   onClick={handleTriggerScaffold}
                   disabled={isScaffolding}
-                  className="h-7 text-xs font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10 cursor-pointer shrink-0"
+                  className="h-8 text-xs font-semibold gap-1.5 text-primary border-primary/30 hover:bg-primary/10 cursor-pointer shadow-2xs"
                   title="Generate 5 tahapan standar MFC (Analisis, UI Design, Develop, Testing, Deploy)"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  <span>{isScaffolding ? 'Menyusun 5 Tahap...' : '⚡ Auto 5 Tahapan MFC'}</span>
+                  <span>{isScaffolding ? 'Menyusun 5 Tahap...' : '⚡ Auto 5 Tahap'}</span>
                 </Button>
               )}
             </div>
+          </div>
+        </DialogHeader>
 
-            {/* 2-Column Responsive Form Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              
-              {/* KOLOM KIRI: Informasi Inti, Delegasi, Catatan Teknis */}
-              <div className="space-y-3.5">
-                {/* Input Judul */}
-                <div className="space-y-1">
+        {/* ========================================================= */}
+        {/* SEGMENTED TAB SELECTOR (3 TAHAP TERSTRUKTUR & NYAMAN)     */}
+        {/* ========================================================= */}
+        <div className="px-4 py-2 border-b border-border/70 bg-muted/25 flex items-center justify-between gap-2 overflow-x-auto shrink-0">
+          <div className="flex items-center gap-1 bg-muted/80 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setFormTab('info')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                formTab === 'info'
+                  ? 'bg-card text-primary shadow-xs font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>1. Informasi & Dokumen</span>
+              {(!judul.trim() || !deskripsi.trim()) && (
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" title="Judul dan Deskripsi wajib diisi" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFormTab('execution')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                formTab === 'execution'
+                  ? 'bg-card text-primary shadow-xs font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>2. Pelaksanaan & Tim</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFormTab('settings')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                formTab === 'settings'
+                  ? 'bg-card text-primary shadow-xs font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Wallet className="h-3.5 w-3.5" />
+              <span>3. Finansial & Pengaturan</span>
+            </button>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground font-mono">
+            <span>Kode: <strong className="text-primary font-bold">#{autoCodePreview}</strong></span>
+          </div>
+        </div>
+
+        {/* Notifikasi Kesalahan Validasi */}
+        {error && (
+          <div className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive shrink-0">
+            {error}
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* ISI FORMULIR SESUAI TAB (LEGA, RAPI & TIDAK BERDESAKAN)   */}
+        {/* ========================================================= */}
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+          <form id="note-form" onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* ------------------------------------------------------- */}
+            {/* TAB 1: INFORMASI INTI & DOKUMEN (FULL WIDTH RTE)        */}
+            {/* ------------------------------------------------------- */}
+            {formTab === 'info' && (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* Induk Catatan Info jika Sub-Catatan */}
+                {parentNote && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Hash className="h-4 w-4 text-primary shrink-0" />
+                      <span className="text-muted-foreground">Catatan Induk:</span>
+                      <strong className="text-foreground">#{parentNote.kdJudul} - {parentNote.judul}</strong>
+                    </div>
+                    <span className="font-mono text-primary bg-primary/10 px-2 py-0.5 rounded text-[11px] font-bold">
+                      Sub-Tahap Tingkat {childTingkat}
+                    </span>
+                  </div>
+                )}
+
+                {/* Judul Catatan */}
+                <div className="space-y-1.5">
                   <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                    <span>Judul Catatan / Proyek *</span>
+                    <span>Judul Catatan / Inisiatif Proyek *</span>
                     <span className="text-[10px] text-muted-foreground font-normal">Wajib diisi</span>
                   </label>
                   <Input
                     value={judul}
                     onChange={(e) => setJudul(e.target.value)}
-                    placeholder="Contoh: Implementasi SSO & Refresh Token Guard"
-                    className="text-xs font-semibold h-9"
+                    placeholder="Contoh: Implementasi SSO Guard & Refresh Token Architecture"
+                    className="text-sm font-semibold h-10 bg-card"
                     autoFocus
                   />
                 </div>
 
-                {/* Input Ringkasan */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                    <span>Ringkasan Eksekutif *</span>
-                    <span className="text-[10px] text-muted-foreground font-normal">Deskripsi singkat</span>
-                  </label>
-                  <Textarea
-                    value={ringkasan}
-                    onChange={(e) => setRingkasan(e.target.value)}
-                    placeholder="Deskripsi singkat tujuan, ruang lingkup pengerjaan, atau deliverable..."
-                    className="text-xs min-h-[60px] resize-none"
+                {/* Deskripsi & Uraian Catatan (Rich Text Editor / WYSIWYG Menggantikan Ringkasan) */}
+                <div className="space-y-1.5 pt-1">
+                  <RichTextEditor
+                    label="Deskripsi & Uraian Catatan (WYSIWYG) *"
+                    helperText="Toolbar lengkap: Heading, List, Checklist, Tabel, Tautan, & Template Instan"
+                    value={deskripsi}
+                    onChange={setDeskripsi}
+                    placeholder="Tulis deskripsi, uraian pengerjaan, atau pilih salah satu 'Template' di toolbar..."
+                    minHeight="260px"
+                    maxHeight="420px"
                   />
                 </div>
+              </div>
+            )}
 
+            {/* ------------------------------------------------------- */}
+            {/* TAB 2: PELAKSANAAN & TIM (PIC, STATUS, PROGRES)         */}
+            {/* ------------------------------------------------------- */}
+            {formTab === 'execution' && (
+              <div className="space-y-5 animate-in fade-in duration-150">
                 {/* Penanggung Jawab (PIC) & Delegasi */}
-                <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
+                <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5 text-primary" />
-                      Penanggung Jawab (PIC)
+                      <User className="h-4 w-4 text-primary" />
+                      <span>Penanggung Jawab Tugas (PIC)</span>
                     </label>
-                    <span className="text-[10px] font-mono text-muted-foreground">
-                      {assignMode === 'SELF' ? 'Akun Pembuat' : 'Delegasi Rekan'}
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Mode: {assignMode === 'SELF' ? 'Akun Pembuat' : 'Delegasi Rekan'}
                     </span>
                   </div>
 
-                  {/* Toggle Mode Penugasan */}
-                  <div className="grid grid-cols-2 gap-1 p-0.5 bg-muted rounded-lg text-xs font-semibold">
+                  {/* Toggle Pilihan PIC */}
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl text-xs font-semibold">
                     <button
                       type="button"
                       onClick={() => {
@@ -356,14 +426,14 @@ export function NoteFormModal({
                         setPicName(defaultCreatorName);
                         setPicId(defaultCreatorId);
                       }}
-                      className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs ${
+                      className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer text-xs ${
                         assignMode === 'SELF'
                           ? 'bg-card text-primary shadow-xs font-bold'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <UserCheck className="h-3.5 w-3.5" />
-                      <span>Saya Sendiri</span>
+                      <UserCheck className="h-4 w-4" />
+                      <span>Saya Sendiri ({defaultCreatorName})</span>
                     </button>
 
                     <button
@@ -376,31 +446,30 @@ export function NoteFormModal({
                           setPicId(firstFriend.id);
                         }
                       }}
-                      className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs ${
+                      className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer text-xs ${
                         assignMode === 'FRIEND'
                           ? 'bg-card text-primary shadow-xs font-bold'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <Send className="h-3.5 w-3.5" />
-                      <span>Tugaskan Rekan</span>
+                      <Send className="h-4 w-4" />
+                      <span>Tugaskan ke Rekan Tim</span>
                     </button>
                   </div>
 
                   {assignMode === 'SELF' ? (
-                    <div className="flex items-center gap-2 pt-0.5 text-xs">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-muted-foreground">Label Nama Penanggung Jawab</label>
                       <Input
                         value={picName}
                         onChange={(e) => setPicName(e.target.value)}
                         placeholder="Nama penanggung jawab"
-                        className="h-8 text-xs flex-1 bg-card font-medium"
+                        className="h-9 text-xs bg-card font-semibold"
                       />
-                      <span className="text-[11px] text-muted-foreground shrink-0 font-medium">
-                        (Akun Anda)
-                      </span>
                     </div>
                   ) : (
-                    <div className="space-y-1.5 pt-0.5">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-medium text-muted-foreground">Pilih Rekan dari Daftar Kolaborator</label>
                       <select
                         value={picId}
                         onChange={(e) => {
@@ -411,7 +480,7 @@ export function NoteFormModal({
                             setPicName(found.name);
                           }
                         }}
-                        className="w-full h-8 text-xs rounded-md border border-border bg-card px-2.5 text-foreground font-semibold"
+                        className="w-full h-9 text-xs rounded-lg border border-border bg-card px-3 text-foreground font-semibold"
                       >
                         {friendsList.map((f) => (
                           <option key={f.id} value={f.id}>
@@ -419,81 +488,100 @@ export function NoteFormModal({
                           </option>
                         ))}
                       </select>
-                      <p className="text-[10px] text-primary leading-tight font-medium">
-                        ✓ Catatan ditugaskan ke: <strong>{picName}</strong>
+                      <p className="text-[11px] text-primary flex items-center gap-1 font-medium">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Catatan akan ditugaskan secara resmi kepada: <strong>{picName}</strong>
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Catatan Teknis Detail (Opsional) */}
-                <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-muted-foreground">
-                    Catatan Teknis Detail (Markdown)
-                  </label>
-                  <Textarea
-                    value={catatanDetail}
-                    onChange={(e) => setCatatanDetail(e.target.value)}
-                    placeholder="Rincian teknis, spesifikasi API endpoint, atau kriteria serah terima..."
-                    className="text-xs min-h-[70px] resize-none"
-                  />
-                </div>
-              </div>
-
-              {/* KOLOM KANAN: Klasifikasi, Target Kinerja, Visibilitas, Tags */}
-              <div className="space-y-3.5">
-                {/* Grid Status, Prioritas, Stage */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-xl border border-border/80 bg-muted/15">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-muted-foreground">Status</label>
+                {/* Parameter Siklus Kerja: Status, Prioritas, Tahapan */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl border border-border/80 bg-muted/15">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">Status Pengerjaan</label>
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
-                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
+                      className="w-full h-9 text-xs rounded-lg border border-border bg-card px-2.5 text-foreground font-semibold"
                     >
-                      <option value="DRAFT">DRAFT</option>
-                      <option value="IN_PROGRESS">IN_PROGRESS</option>
-                      <option value="REVIEW">REVIEW</option>
-                      <option value="COMPLETED">COMPLETED</option>
-                      <option value="BLOCKED">BLOCKED</option>
+                      <option value="DRAFT">DRAFT (Konsep)</option>
+                      <option value="IN_PROGRESS">IN_PROGRESS (Sedang Pengerjaan)</option>
+                      <option value="REVIEW">REVIEW (Tinjauan Tim)</option>
+                      <option value="COMPLETED">COMPLETED (Selesai)</option>
+                      <option value="BLOCKED">BLOCKED (Terkendala)</option>
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-muted-foreground">Prioritas</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">Tingkat Prioritas</label>
                     <select
                       value={priority}
                       onChange={(e) => setPriority(e.target.value)}
-                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
+                      className="w-full h-9 text-xs rounded-lg border border-border bg-card px-2.5 text-foreground font-semibold"
                     >
-                      <option value="LOW">LOW</option>
-                      <option value="MEDIUM">MEDIUM</option>
-                      <option value="HIGH">HIGH</option>
-                      <option value="URGENT">URGENT</option>
+                      <option value="LOW">LOW (Rendah)</option>
+                      <option value="MEDIUM">MEDIUM (Sedang)</option>
+                      <option value="HIGH">HIGH (Tinggi)</option>
+                      <option value="URGENT">URGENT (Kritis / Segera)</option>
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-muted-foreground">Tahap Kerja</label>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">Tahapan Kerja (Stage)</label>
                     <select
                       value={stage}
                       onChange={(e) => setStage(e.target.value)}
-                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground font-medium"
+                      className="w-full h-9 text-xs rounded-lg border border-border bg-card px-2.5 text-foreground font-semibold"
                     >
-                      <option value="ANALISIS">1. Analisis</option>
-                      <option value="UI_DESIGN">2. Desain UI</option>
-                      <option value="DEVELOP">3. Develop</option>
-                      <option value="TESTING">4. Testing</option>
-                      <option value="DEPLOY">5. Rilis</option>
+                      <option value="ANALISIS">1. Analisis Kebutuhan</option>
+                      <option value="UI_DESIGN">2. Desain Antarmuka (UI/UX)</option>
+                      <option value="DEVELOP">3. Pengembangan & Kode</option>
+                      <option value="TESTING">4. Pengujian & QA</option>
+                      <option value="DEPLOY">5. Rilis & Deployment</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Target Kerja & Anggaran: Bobot, Pagu, Batas Waktu */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border border-border/80 bg-muted/20">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                      <Percent className="h-3 w-3 text-primary" /> Bobot (%)
+                {/* Capaian Progres & Bobot Kerja */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl border border-border/80 bg-muted/20">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="font-bold text-foreground flex items-center gap-1.5">
+                        <Percent className="h-3.5 w-3.5 text-primary" />
+                        <span>Capaian Progres Saat Ini</span>
+                      </label>
+                      <span className="font-mono font-bold text-primary">{progress}%</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        value={progress}
+                        onChange={(e) => setProgress(Number(e.target.value))}
+                        className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={progress}
+                        onChange={(e) => setProgress(Math.min(100, Math.max(0, Number(e.target.value))))}
+                        className="w-16 h-8 text-xs font-mono font-bold text-center bg-card"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        <span>Bobot Relatif Pekerjaan (%)</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Opsional</span>
                     </label>
                     <Input
                       type="number"
@@ -502,107 +590,208 @@ export function NoteFormModal({
                       step="0.5"
                       value={weight}
                       onChange={(e) => setWeight(e.target.value)}
-                      placeholder="null"
-                      className="h-8 text-xs bg-card"
+                      placeholder="Contoh: 20 (Persentase terhadap total proyek)"
+                      className="h-9 text-xs bg-card"
                     />
                   </div>
+                </div>
+              </div>
+            )}
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                      <Wallet className="h-3 w-3 text-emerald-600" /> Pagu (Rp)
+            {/* ------------------------------------------------------- */}
+            {/* TAB 3: FINANSIAL, VISIBILITAS, & PENGATURAN             */}
+            {/* ------------------------------------------------------- */}
+            {formTab === 'settings' && (
+              <div className="space-y-5 animate-in fade-in duration-150">
+                {/* Pagu Target Anggaran & Batas Waktu */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl border border-border/80 bg-muted/20">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Wallet className="h-4 w-4 text-emerald-600" />
+                        <span>Pagu Target Anggaran (Rp)</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Opsional</span>
                     </label>
                     <Input
                       type="number"
                       value={targetBudget}
                       onChange={(e) => setTargetBudget(e.target.value)}
-                      placeholder="null"
-                      className="h-8 text-xs bg-card"
+                      placeholder="Contoh: 15000000"
+                      className="h-9 text-xs bg-card font-mono"
                     />
+                    {targetBudget && Number(targetBudget) > 0 && (
+                      <p className="text-[11px] text-emerald-600 font-bold">
+                        Terformat: Rp {Number(targetBudget).toLocaleString('id-ID')}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                      <Calendar className="h-3 w-3 text-amber-600" /> Deadline
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="h-4 w-4 text-amber-600" />
+                        <span>Batas Waktu Pengerjaan (Deadline)</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Opsional</span>
                     </label>
                     <Input
                       type="date"
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
-                      className="h-8 text-xs bg-card"
+                      className="h-9 text-xs bg-card"
                     />
                   </div>
                 </div>
 
                 {/* Visibilitas Publikasi Katalog */}
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-2">
-                  <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                    <span>Visibilitas Katalog</span>
-                    <span className="text-[10px] text-muted-foreground font-normal">Katalog Terbuka</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Globe className="h-4 w-4 text-primary" />
+                      <span>Visibilitas & Akses Katalog</span>
+                    </label>
+                    <span className="text-[10px] text-muted-foreground">Katalog Eksternal</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <button
                       type="button"
                       onClick={() => setSharingMode('PRIVATE')}
-                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
                         sharingMode === 'PRIVATE'
-                          ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
-                          : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
+                          ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs'
+                          : 'border-border/70 bg-card text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <p className="font-semibold text-xs text-foreground">🔒 Privat</p>
-                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                        Hanya diakses Anda & anggota tim diizinkan.
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4 text-primary" />
+                        <span className="font-bold text-xs text-foreground">🔒 Akses Privat (Internal Tim)</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed pl-6">
+                        Hanya dapat diakses oleh Anda, rekan tim tertugaskan, dan PIC diizinkan.
                       </p>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setSharingMode('PUBLIC')}
-                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
                         sharingMode === 'PUBLIC'
-                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold shadow-2xs'
-                          : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold shadow-xs'
+                          : 'border-border/70 bg-card text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <p className="font-semibold text-xs text-emerald-700 dark:text-emerald-400">🌐 Publik</p>
-                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                        Tampil di tab Publik & bisa diakses tanpa login.
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-bold text-xs text-emerald-700 dark:text-emerald-400">🌐 Akses Publik (Katalog Terbuka)</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed pl-6">
+                        Tampil di tab Publik & dapat dibaca siapa saja melalui tautan resmi tanpa login.
                       </p>
                     </button>
                   </div>
                 </div>
 
-                {/* Tags Input */}
-                <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                    <Tag className="h-3 w-3" /> Label Tags
+                {/* Label Tags */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5 text-primary" />
+                    <span>Label Tags Pencarian</span>
                   </label>
                   <Input
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
-                    placeholder="api,auth,docker,database (pisahkan dengan koma)"
-                    className="h-8 text-xs"
+                    placeholder="Contoh: api, auth, docker, database (pisahkan dengan koma)"
+                    className="h-9 text-xs bg-card"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Memudahkan pencarian dan pengelompokan catatan pada dashboard.
+                  </p>
                 </div>
               </div>
-            </div>
+            )}
           </form>
         </div>
 
-        {/* Footer */}
-        <DialogFooter className="p-3 border-t border-border/80 bg-muted/20 flex items-center justify-between sm:justify-between">
-          <Button type="button" variant="ghost" onClick={onClose} className="h-8 text-xs cursor-pointer">
-            Batal
-          </Button>
+        {/* ========================================================= */}
+        {/* MODAL FOOTER (STICKY DENGAN TOMBOL NAVIGASI & SIMPAN)      */}
+        {/* ========================================================= */}
+        <DialogFooter className="p-3.5 border-t border-border/80 bg-muted/30 flex items-center justify-between sm:justify-between shrink-0">
+          {/* Sisi Kiri: Navigasi Antar Tab */}
+          <div className="flex items-center gap-1.5">
+            {formTab === 'info' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormTab('execution')}
+                className="h-8 text-xs gap-1.5 cursor-pointer font-medium"
+              >
+                <span>Pelaksanaan & Tim</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            )}
 
-          <Button
-            type="submit"
-            form="note-form"
-            disabled={isSubmitting || !judul.trim() || !ringkasan.trim()}
-            className="h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
-          >
-            {isSubmitting ? 'Menyimpan...' : isEditing ? 'Simpan Perubahan' : 'Buat Catatan'}
-          </Button>
+            {formTab === 'execution' && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormTab('info')}
+                  className="h-8 text-xs gap-1.5 cursor-pointer font-medium"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Informasi</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormTab('settings')}
+                  className="h-8 text-xs gap-1.5 cursor-pointer font-medium"
+                >
+                  <span>Finansial & Akses</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+
+            {formTab === 'settings' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormTab('execution')}
+                className="h-8 text-xs gap-1.5 cursor-pointer font-medium"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Pelaksanaan & Tim</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Sisi Kanan: Batal & Simpan */}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              className="h-8 text-xs cursor-pointer"
+            >
+              Batal
+            </Button>
+
+            <Button
+              type="submit"
+              form="note-form"
+              disabled={isSubmitting || !judul.trim() || !deskripsi.trim()}
+              className="h-8 text-xs font-bold gap-1.5 cursor-pointer shadow-xs"
+            >
+              {isSubmitting ? 'Menyimpan...' : isEditing ? 'Simpan Perubahan' : 'Buat Catatan'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

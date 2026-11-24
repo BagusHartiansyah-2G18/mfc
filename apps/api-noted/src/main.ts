@@ -3,7 +3,6 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { json, urlencoded } from 'express';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   // Body parser dinonaktifkan agar limit payload bisa dinaikkan untuk upload berkas form (base64).
@@ -13,7 +12,6 @@ async function bootstrap() {
 
   app.use(json({ limit: '25mb' }));
   app.use(urlencoded({ extended: true, limit: '25mb' }));
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
 
   // Global prefix: /api
   app.setGlobalPrefix('api');

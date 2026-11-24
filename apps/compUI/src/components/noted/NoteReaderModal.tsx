@@ -277,67 +277,236 @@ export function NoteReaderModal({
 
   // Lightweight Parser untuk Render Catatan Detail yang kaya format
   const renderFormattedDetail = (content: string) => {
-    const lines = content.split('\n');
-    return lines.map((line, idx) => {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        return <div key={idx} className="h-3" />;
+    if (!content || !content.trim()) return null;
+
+    const renderInline = (text: string) => {
+      if (!text) return null;
+      // Link parser: [title](url)
+      const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+      const parts = [];
+      let lastIdx = 0;
+      let match;
+
+      while ((match = linkRegex.exec(text)) !== null) {
+        if (match.index > lastIdx) {
+          parts.push(text.substring(lastIdx, match.index));
+        }
+        parts.push(
+          <a
+            key={`l-${match.index}`}
+            href={match[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-semibold"
+          >
+            {match[1]}
+          </a>
+        );
+        lastIdx = linkRegex.lastIndex;
       }
+      if (lastIdx < text.length) {
+        parts.push(text.substring(lastIdx));
+      }
+
+      return parts.map((part, pIdx) => {
+        if (typeof part !== 'string') return part;
+
+        // Inline code
+        const codeParts = part.split(/`([^`]+)`/g);
+        return codeParts.map((cp, cpIdx) => {
+          if (cpIdx % 2 === 1) {
+            return (
+              <code
+                key={cpIdx}
+                className="font-mono text-[11px] bg-muted px-1.5 py-0.5 rounded text-primary font-bold border border-border/60"
+              >
+                {cp}
+              </code>
+            );
+          }
+
+          let inner: React.ReactNode = cp;
+          // Bold
+          if (typeof inner === 'string' && inner.includes('**')) {
+            const boldParts = inner.split(/\*\*([^*]+)\*\*/g);
+            inner = boldParts.map((bp, bpIdx) =>
+              bpIdx % 2 === 1 ? <strong key={bpIdx} className="font-bold text-foreground">{bp}</strong> : bp
+            );
+          }
+          return <span key={cpIdx}>{inner}</span>;
+        });
+      });
+    };
+
+    const lines = content.split('\n');
+    let inTable = false;
+    let tableHeaders: string[] = [];
+    let tableRows: string[][] = [];
+    const elements: React.ReactNode[] = [];
+
+    const flushTable = (k: string) => {
+      if (inTable && tableHeaders.length > 0) {
+        elements.push(
+          <div key={k} className="my-3 overflow-x-auto rounded-xl border border-border/70 shadow-2xs">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted/70 text-[11px] font-bold text-foreground uppercase border-b border-border/70">
+                <tr>
+                  {tableHeaders.map((h, i) => (
+                    <th key={i} className="py-2.5 px-3">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40 text-[11px]">
+                {tableRows.map((row, rIdx) => (
+                  <tr key={rIdx} className="hover:bg-muted/30 transition-colors">
+                    {row.map((cell, cIdx) => (
+                      <td key={cIdx} className="py-2.5 px-3 text-foreground/90">
+                        {renderInline(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        inTable = false;
+        tableHeaders = [];
+        tableRows = [];
+      }
+    };
+
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+
+      // Deteksi baris Tabel
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        const parts = trimmed
+          .split('|')
+          .map((p) => p.trim())
+          .filter((_, i, arr) => i > 0 && i < arr.length - 1);
+
+        if (parts.every((p) => /^:?-+:?$/.test(p))) {
+          return;
+        }
+
+        if (!inTable) {
+          inTable = true;
+          tableHeaders = parts;
+        } else {
+          tableRows.push(parts);
+        }
+        return;
+      } else if (inTable) {
+        flushTable(`tbl-${idx}`);
+      }
+
+      if (!trimmed) {
+        elements.push(<div key={`b-${idx}`} className="h-3" />);
+        return;
+      }
+
+      if (trimmed === '---' || trimmed === '***') {
+        elements.push(<hr key={`hr-${idx}`} className="my-4 border-t border-border/80" />);
+        return;
+      }
+
       if (trimmed.startsWith('### ')) {
-        return (
-          <h4 key={idx} className="text-sm font-bold text-foreground mt-4 mb-1.5 flex items-center gap-1.5">
+        elements.push(
+          <h4 key={`h3-${idx}`} className="text-sm font-bold text-foreground mt-4 mb-1.5 flex items-center gap-1.5 text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            {trimmed.substring(4)}
+            {renderInline(trimmed.substring(4))}
           </h4>
         );
+        return;
       }
       if (trimmed.startsWith('## ')) {
-        return (
-          <h3 key={idx} className="text-base font-extrabold text-foreground mt-5 mb-2 pb-1 border-b border-border/60">
-            {trimmed.substring(3)}
+        elements.push(
+          <h3 key={`h2-${idx}`} className="text-base font-extrabold text-foreground mt-5 mb-2 pb-1 border-b border-border/60">
+            {renderInline(trimmed.substring(3))}
           </h3>
         );
+        return;
       }
       if (trimmed.startsWith('# ')) {
-        return (
-          <h2 key={idx} className="text-lg font-black text-foreground mt-6 mb-2">
-            {trimmed.substring(2)}
+        elements.push(
+          <h2 key={`h1-${idx}`} className="text-lg font-black text-foreground mt-6 mb-2 text-primary">
+            {renderInline(trimmed.substring(2))}
           </h2>
         );
+        return;
       }
-      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        return (
-          <div key={idx} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-2">
-            <span className="text-primary mt-1 text-[10px]">&bull;</span>
-            <span className="leading-relaxed">{trimmed.substring(2)}</span>
+
+      // Checklist: - [ ] atau - [x]
+      if (trimmed.startsWith('- [ ] ') || trimmed.startsWith('* [ ] ')) {
+        elements.push(
+          <div key={`chk-u-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-1">
+            <span className="mt-0.5 flex h-3.5 w-3.5 items-center justify-center rounded border border-border bg-card shrink-0" />
+            <span className="leading-relaxed">{renderInline(trimmed.substring(6))}</span>
           </div>
         );
+        return;
       }
+      if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ') || trimmed.startsWith('* [x] ')) {
+        elements.push(
+          <div key={`chk-d-${idx}`} className="flex items-start gap-2 text-xs text-muted-foreground my-1 pl-1">
+            <span className="mt-0.5 flex h-3.5 w-3.5 items-center justify-center rounded bg-emerald-600 text-white shrink-0 text-[10px] font-bold">
+              ✓
+            </span>
+            <span className="leading-relaxed line-through">{renderInline(trimmed.substring(6))}</span>
+          </div>
+        );
+        return;
+      }
+
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        elements.push(
+          <div key={`li-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-2">
+            <span className="text-primary mt-1 text-[10px] font-black">&bull;</span>
+            <span className="leading-relaxed">{renderInline(trimmed.substring(2))}</span>
+          </div>
+        );
+        return;
+      }
+
       if (/^\d+\.\s/.test(trimmed)) {
         const numMatch = trimmed.match(/^(\d+)\.\s(.*)$/);
-        return (
-          <div key={idx} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-2">
+        elements.push(
+          <div key={`num-${idx}`} className="flex items-start gap-2 text-xs text-foreground/90 my-1 pl-2">
             <span className="font-mono text-primary font-bold text-[11px] shrink-0">{numMatch?.[1]}.</span>
-            <span className="leading-relaxed">{numMatch?.[2]}</span>
+            <span className="leading-relaxed">{renderInline(numMatch?.[2] || '')}</span>
           </div>
         );
+        return;
       }
+
       if (trimmed.startsWith('> ')) {
-        return (
+        elements.push(
           <blockquote
-            key={idx}
-            className="my-3 border-l-3 border-amber-500 bg-amber-500/5 px-3 py-2 text-xs text-foreground/90 italic rounded-r-md"
+            key={`q-${idx}`}
+            className="my-3 border-l-3 border-amber-500 bg-amber-500/10 dark:bg-amber-500/5 px-3 py-2 text-xs text-foreground/90 italic rounded-r-md"
           >
-            {trimmed.substring(2)}
+            {renderInline(trimmed.substring(2))}
           </blockquote>
         );
+        return;
       }
-      return (
-        <p key={idx} className="text-xs leading-relaxed text-foreground/85 my-1.5">
-          {line}
+
+      if (trimmed.startsWith('```')) {
+        return;
+      }
+
+      elements.push(
+        <p key={`p-${idx}`} className="text-xs leading-relaxed text-foreground/85 my-1.5">
+          {renderInline(line)}
         </p>
       );
     });
+
+    flushTable(`tbl-end`);
+    return elements;
   };
 
   const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
@@ -770,8 +939,8 @@ export function NoteReaderModal({
               </div>
             </div>
 
-            {/* Ringkasan Eksekutif (Executive Summary Blockquote) */}
-            {activeNote.ringkasan && (
+            {/* Ringkasan Eksekutif (hanya ditampilkan jika berbeda dengan catatan detail) */}
+            {activeNote.ringkasan && activeNote.catatanDetail && activeNote.ringkasan !== activeNote.catatanDetail && (
               <div className="relative rounded-2xl border-l-4 border-primary bg-primary/5 dark:bg-primary/10 p-4 sm:p-5 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-primary font-bold text-xs uppercase tracking-wider">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -783,15 +952,15 @@ export function NoteReaderModal({
               </div>
             )}
 
-            {/* Catatan Rinci & Spesifikasi Teknis (Body Content) */}
-            {activeNote.catatanDetail ? (
+            {/* Uraian Dokumen & Deskripsi Utama (WYSIWYG Body) */}
+            {(activeNote.catatanDetail || activeNote.ringkasan) ? (
               <div className="space-y-2 pt-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-primary" />
                   <span>Uraian Dokumen & Spesifikasi Kerja</span>
                 </h3>
                 <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs leading-relaxed">
-                  {renderFormattedDetail(activeNote.catatanDetail)}
+                  {renderFormattedDetail(activeNote.catatanDetail || activeNote.ringkasan)}
                 </div>
               </div>
             ) : null}
