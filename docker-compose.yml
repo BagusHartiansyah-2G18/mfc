@@ -23,7 +23,7 @@ services:
       sh -c "([ -d /app/node_modules/@prisma/client ] || npm install --no-audit --no-fund --prefix /app) &&
       npx prisma generate --schema=apps/api/prisma/schema.prisma &&
       npx tsc --build apps/api/tsconfig.app.json &&
-      node apps/api/dist/main.js"
+      node --watch apps/api/dist/main.js"
 
   api-noted:
     build:
@@ -50,7 +50,7 @@ services:
       sh -c "([ -d /app/node_modules/@prisma/client ] || npm install --no-audit --no-fund --prefix /app) &&
       npx prisma generate --schema=apps/api-noted/prisma/schema.prisma &&
       npx tsc --build apps/api-noted/tsconfig.app.json &&
-      node apps/api-noted/dist/main.js"
+      node --watch apps/api-noted/dist/main.js"
 
   compui:
     build:

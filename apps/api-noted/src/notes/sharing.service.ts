@@ -111,58 +111,105 @@ export class SharingService {
 
   // 4. Ambil turunan level selanjutnya untuk catatan publik (Public Catalog Sub-Notes)
   async getPublicSubNotes(query: QuerySubNoteDto) {
-    const { kdJudul } = query;
-    if (!kdJudul) {
-      throw new BadRequestException('Parameter kdJudul wajib disertakan.');
+    const { kdJudul, kdMember, id } = query;
+    if (!kdJudul && !id) {
+      throw new BadRequestException('Parameter kdJudul atau id wajib disertakan.');
     }
 
-    const currentNote = await this.prisma.judulNote.findFirst({
-      where: { kdJudul },
-      include: {
-        files: true,
-        collaborators: true,
-        approvals: true,
-        transactions: { orderBy: { trxDate: 'desc' } },
-        checklists: { orderBy: { orderSeq: 'asc' } },
-        dynamicForms: {
-          where: { sharingMode: 'PUBLIC' },
-          select: { id: true, tujuan: true, shareSlug: true, isLocked: true },
-        },
+    const includeRelations = {
+      files: true,
+      collaborators: true,
+      approvals: true,
+      transactions: { orderBy: { trxDate: 'desc' as const } },
+      checklists: { orderBy: { orderSeq: 'asc' as const } },
+      dynamicForms: {
+        where: { sharingMode: 'PUBLIC' },
+        select: { id: true, tujuan: true, shareSlug: true, isLocked: true },
       },
-    });
+    };
+
+    let currentNote: any = null;
+
+    // Strategi 1: Cari berdasarkan ID unik (UUID global) jika disediakan
+    if (id) {
+      currentNote = await this.prisma.judulNote.findFirst({
+        where: {
+          id,
+          OR: [{ sharingMode: 'PUBLIC' }, { publikasi: true }],
+        },
+        include: includeRelations,
+      });
+
+      // Fallback jika mode sharing belum tersinkron di field
+      if (!currentNote) {
+        currentNote = await this.prisma.judulNote.findFirst({
+          where: { id },
+          include: includeRelations,
+        });
+      }
+    }
+
+    // Strategi 2: Cari berdasarkan pasangan unik [kdJudul, kdMember]
+    if (!currentNote && kdJudul && kdMember) {
+      currentNote = await this.prisma.judulNote.findFirst({
+        where: {
+          kdJudul,
+          kdMember,
+          OR: [{ sharingMode: 'PUBLIC' }, { publikasi: true }],
+        },
+        include: includeRelations,
+      });
+
+      if (!currentNote) {
+        currentNote = await this.prisma.judulNote.findFirst({
+          where: { kdJudul, kdMember },
+          include: includeRelations,
+        });
+      }
+    }
+
+    // Strategi 3: Cari berdasarkan kdJudul dengan prioritas utama catatan yang berstatus PUBLIC
+    if (!currentNote && kdJudul) {
+      currentNote = await this.prisma.judulNote.findFirst({
+        where: {
+          kdJudul,
+          OR: [{ sharingMode: 'PUBLIC' }, { publikasi: true }],
+        },
+        include: includeRelations,
+      });
+
+      // Fallback terakhir: Ambil catatan dengan kdJudul tersebut
+      if (!currentNote) {
+        currentNote = await this.prisma.judulNote.findFirst({
+          where: { kdJudul },
+          include: includeRelations,
+        });
+      }
+    }
 
     if (!currentNote) {
-      throw new NotFoundException(`Catatan publik #${kdJudul} tidak ditemukan.`);
+      throw new NotFoundException(`Catatan publik #${id || kdJudul} tidak ditemukan.`);
     }
 
     // Bangun rantai silsilah induk
     const breadcrumbChain = await this.buildPublicBreadcrumbChain(currentNote);
 
-    // Ambil anak langsung (Tingkat N+1)
+    // Ambil anak langsung (Tingkat N+1) dengan isolasi kepemilikan kdMember
     const childTingkat = currentNote.tingkat + 1;
     const directChildren = await this.prisma.judulNote.findMany({
       where: {
+        kdMember: currentNote.kdMember, // Isolasi data agar tidak tercampur antar-pengguna
         tingkat: childTingkat,
         OR: [
-          { parentKdJudul: kdJudul },
+          { parentKdJudul: currentNote.kdJudul },
           {
             kdJudul: {
-              startsWith: childTingkat === 1 ? `${kdJudul}MFC` : `${kdJudul}#`,
+              startsWith: childTingkat === 1 ? `${currentNote.kdJudul}MFC` : `${currentNote.kdJudul}#`,
             },
           },
         ],
       },
-      include: {
-        files: true,
-        collaborators: true,
-        approvals: true,
-        transactions: { orderBy: { trxDate: 'desc' } },
-        checklists: { orderBy: { orderSeq: 'asc' } },
-        dynamicForms: {
-          where: { sharingMode: 'PUBLIC' },
-          select: { id: true, tujuan: true, shareSlug: true, isLocked: true },
-        },
-      },
+      include: includeRelations,
       orderBy: { kdJudul: 'asc' },
     });
 
@@ -195,7 +242,10 @@ export class SharingService {
       if (!parentCode) break;
 
       const parentNote = await this.prisma.judulNote.findFirst({
-        where: { kdJudul: parentCode },
+        where: {
+          kdJudul: parentCode,
+          kdMember: curr.kdMember,
+        },
         select: {
           kdJudul: true,
           judul: true,
@@ -222,26 +272,65 @@ export class SharingService {
       throw new BadRequestException('Parameter kdJudul wajib disertakan.');
     }
 
-    const currentNote = await this.prisma.judulNote.findFirst({
-      where: { kdJudul },
-      include: {
-        files: true,
-        collaborators: true,
-        approvals: true,
-        transactions: { orderBy: { trxDate: 'desc' } },
-        checklists: { orderBy: { orderSeq: 'asc' } },
-        dynamicForms: {
-          select: { id: true, tujuan: true, shareSlug: true, isLocked: true },
+    // Ekstraksi user jika ada Authorization Bearer token
+    const user = extractUserFromAuthHeader(authHeader);
+
+    // Ambil catatan dengan prioritas: jika user login, prioritaskan milik user, jika guest prioritaskan publik
+    let currentNote = null;
+    if (user?.kdMember) {
+      currentNote = await this.prisma.judulNote.findFirst({
+        where: { kdJudul, kdMember: user.kdMember },
+        include: {
+          files: true,
+          collaborators: true,
+          approvals: true,
+          transactions: { orderBy: { trxDate: 'desc' } },
+          checklists: { orderBy: { orderSeq: 'asc' } },
+          dynamicForms: {
+            select: { id: true, tujuan: true, shareSlug: true, isLocked: true },
+          },
         },
-      },
-    });
+      });
+    }
+
+    if (!currentNote) {
+      currentNote = await this.prisma.judulNote.findFirst({
+        where: {
+          kdJudul,
+          OR: [{ sharingMode: 'PUBLIC' }, { publikasi: true }],
+        },
+        include: {
+          files: true,
+          collaborators: true,
+          approvals: true,
+          transactions: { orderBy: { trxDate: 'desc' } },
+          checklists: { orderBy: { orderSeq: 'asc' } },
+          dynamicForms: {
+            select: { id: true, tujuan: true, shareSlug: true, isLocked: true },
+          },
+        },
+      });
+    }
+
+    if (!currentNote) {
+      currentNote = await this.prisma.judulNote.findFirst({
+        where: { kdJudul },
+        include: {
+          files: true,
+          collaborators: true,
+          approvals: true,
+          transactions: { orderBy: { trxDate: 'desc' } },
+          checklists: { orderBy: { orderSeq: 'asc' } },
+          dynamicForms: {
+            select: { id: true, tujuan: true, shareSlug: true, isLocked: true },
+          },
+        },
+      });
+    }
 
     if (!currentNote) {
       throw new NotFoundException(`Catatan #${kdJudul} tidak ditemukan.`);
     }
-
-    // Ekstraksi user jika ada Authorization Bearer token
-    const user = extractUserFromAuthHeader(authHeader);
 
     // Evaluasi Hak Akses Cabang
     const perm = await this.notesService.checkBranchPermission(currentNote, user);
@@ -257,10 +346,11 @@ export class SharingService {
     // Bangun rantai silsilah induk
     const breadcrumbChain = await this.buildPublicBreadcrumbChain(currentNote);
 
-    // Ambil direct children (Tingkat N+1) yang aktif (bukan ARCHIVED)
+    // Ambil direct children (Tingkat N+1) yang aktif (bukan ARCHIVED) dengan isolasi kdMember
     const childTingkat = currentNote.tingkat + 1;
     const directChildren = await this.prisma.judulNote.findMany({
       where: {
+        kdMember: currentNote.kdMember,
         tingkat: childTingkat,
         NOT: { status: 'ARCHIVED' },
         OR: [

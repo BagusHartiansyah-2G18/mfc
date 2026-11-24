@@ -178,9 +178,20 @@ export function NoteReaderModal({
       try {
         setIsLoadingHierarchy(true);
         const isPublic = Boolean(isPublicContext || target.sharingMode === 'PUBLIC' || target.publikasi);
+        const publicParams = new URLSearchParams({
+          kdJudul: target.kdJudul,
+          tingkat: String(target.tingkat),
+          ...(target.id ? { id: target.id } : {}),
+          ...(target.kdMember ? { kdMember: target.kdMember } : {}),
+        });
+        const privateParams = new URLSearchParams({
+          kdJudul: target.kdJudul,
+          tingkat: String(target.tingkat),
+          kdMember: target.kdMember || '',
+        });
         const url = isPublic
-          ? `${apiBaseUrl}/sharing/public-sub?kdJudul=${encodeURIComponent(target.kdJudul)}&tingkat=${target.tingkat}`
-          : `${apiBaseUrl}/notes/sub?kdJudul=${encodeURIComponent(target.kdJudul)}&tingkat=${target.tingkat}&kdMember=${encodeURIComponent(target.kdMember || '')}`;
+          ? `${apiBaseUrl}/sharing/public-sub?${publicParams.toString()}`
+          : `${apiBaseUrl}/notes/sub?${privateParams.toString()}`;
 
         const res = await authFetch(url, { skipAuth: isPublic });
         if (!res.ok) {

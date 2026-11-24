@@ -57,7 +57,8 @@ export interface QueryNoteDto {
 }
 
 export interface QuerySubNoteDto {
-  kdJudul: string;
+  id?: string;
+  kdJudul?: string;
   kdMember?: string;
   tingkat?: number | string;
 }
