@@ -276,12 +276,42 @@ export class FlexibleFormsService {
       : '';
     const fromDate = this.parseDate(query.from);
     const toDate = this.parseDate(query.to);
+    if (toDate && typeof query.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(query.to.trim())) {
+      toDate.setHours(23, 59, 59, 999);
+    }
     const orderBy: any =
       query.sort === 'oldest' ? { createdAt: 'asc' } : query.sort === 'status' ? { status: 'asc' } : { createdAt: 'desc' };
 
-    const accessibleForms = await this.prisma.dataForm.findMany({
+    // Parse per-column answer filters (JSON string `columnFilters` or `filter_<key>` query params)
+    const columnFilters: Record<string, string> = {};
+    if (typeof query.columnFilters === 'string' && query.columnFilters.trim()) {
+      try {
+        const parsed = JSON.parse(query.columnFilters);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          for (const [k, v] of Object.entries(parsed).slice(0, 40)) {
+            if (/^[a-zA-Z0-9_]+$/.test(k) && v !== null && v !== undefined) {
+              const str = String(v).trim().slice(0, 100);
+              if (str) columnFilters[k] = str;
+            }
+          }
+        }
+      } catch {
+        // Ignore malformed JSON filter payload
+      }
+    }
+    for (const [qk, qv] of Object.entries(query || {})) {
+      if (qk.startsWith('filter_') && qv !== null && qv !== undefined) {
+        const fieldKey = qk.slice('filter_'.length);
+        if (/^[a-zA-Z0-9_]+$/.test(fieldKey)) {
+          const str = String(qv).trim().slice(0, 100);
+          if (str) columnFilters[fieldKey] = str;
+        }
+      }
+    }
+
+    // Ambil semua form yang boleh diakses (untuk dropdown pilihan form & scoping query)
+    const allAccessibleForms = await this.prisma.dataForm.findMany({
       where: {
-        ...(formId ? { id: formId } : {}),
         ...(kdJudul ? { kdNote: kdJudul } : {}),
         OR: [
           { kdMember: user.kdMember },
@@ -291,12 +321,30 @@ export class FlexibleFormsService {
         ],
       },
       include: { accessRules: true },
+      orderBy: { createdAt: 'desc' },
     });
-    const allowedForms = accessibleForms.filter((f) => this.canViewFormResponses(f, user));
+    const allAllowedForms = allAccessibleForms.filter((f) => this.canViewFormResponses(f, user));
+    const availableForms = allAllowedForms.map((f) => ({
+      id: f.id,
+      tujuan: f.tujuan,
+      kdNote: f.kdNote,
+    }));
+
+    const allowedForms = formId ? allAllowedForms.filter((f) => f.id === formId) : allAllowedForms;
     const formIds = allowedForms.map((f) => f.id);
 
     if (formIds.length === 0) {
-      return { success: true, data: [], count: 0, total: 0, page, limit, columns: [], selectedForm: null };
+      return {
+        success: true,
+        data: [],
+        count: 0,
+        total: 0,
+        page,
+        limit,
+        columns: [],
+        selectedForm: null,
+        availableForms,
+      };
     }
 
     const where: any = { formId: { in: formIds } };
@@ -306,21 +354,6 @@ export class FlexibleFormsService {
       if (fromDate) where.createdAt.gte = fromDate;
       if (toDate) where.createdAt.lte = toDate;
     }
-    if (search) {
-      where.AND = [
-        ...(where.AND || []),
-        {
-          OR: [
-            { responderName: { contains: search } },
-            { responderEmail: { contains: search } },
-            { originHost: { contains: search } },
-            { id: { contains: search } },
-            { form: { tujuan: { contains: search } } },
-            { form: { kdNote: { contains: search } } },
-          ],
-        },
-      ];
-    }
 
     const selectedForm = formId ? allowedForms.find((f) => f.id === formId) || null : null;
     const selectedFields = selectedForm && Array.isArray(selectedForm.fields) ? (selectedForm.fields as any[]) : [];
@@ -328,19 +361,103 @@ export class FlexibleFormsService {
       ? selectedFields
           .filter((f) => f && typeof f.key === 'string' && /^[a-zA-Z0-9_]+$/.test(f.key))
           .slice(0, 40)
-          .map((f) => ({ key: f.key, label: f.label || f.key, type: f.type || 'text' }))
+          .map((f) => ({
+            key: f.key,
+            label: f.label || f.key,
+            type: f.type || 'text',
+            options: Array.isArray(f.options) ? f.options : undefined,
+          }))
       : [];
 
-    const [total, values] = await Promise.all([
-      this.prisma.valueForm.count({ where }),
-      this.prisma.valueForm.findMany({
+    const hasColumnFilters = Object.keys(columnFilters).length > 0;
+    const needsInMemoryFilter = Boolean(search) || hasColumnFilters;
+
+    const extractSearchableText = (val: any): string => {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'boolean') return val ? 'ya true 1' : 'tidak false 0';
+      if (typeof val === 'string' || typeof val === 'number') return String(val);
+      if (Array.isArray(val)) return val.map(extractSearchableText).join(' ');
+      if (typeof val === 'object') {
+        if (val.fileName || val.name) return String(val.fileName || val.name);
+        return Object.entries(val)
+          .filter(([k]) => k !== '__type')
+          .map(([, v]) => extractSearchableText(v))
+          .join(' ');
+      }
+      return String(val);
+    };
+
+    let total = 0;
+    let values: any[] = [];
+
+    if (needsInMemoryFilter) {
+      const candidates = await this.prisma.valueForm.findMany({
         where,
         include: { form: { select: { id: true, tujuan: true, kdNote: true, fields: true } } },
         orderBy,
-        skip,
-        take: limit,
-      }),
-    ]);
+      });
+
+      const noteIdsForFilter = Array.from(new Set(candidates.map((v) => v.form.kdNote)));
+      const notesForFilter = noteIdsForFilter.length
+        ? await this.prisma.judulNote.findMany({
+            where: { kdJudul: { in: noteIdsForFilter } },
+            select: { kdJudul: true, judul: true },
+          })
+        : [];
+      const noteTitleMap = new Map(notesForFilter.map((n) => [n.kdJudul, n.judul]));
+
+      const searchLower = search.toLowerCase();
+      const filterEntries = Object.entries(columnFilters).map(([k, v]) => [k, v.toLowerCase()] as const);
+
+      const matched = candidates.filter((v) => {
+        const answersObj = ((v.answers as any)?.answers || v.answers || {}) as Record<string, any>;
+
+        if (hasColumnFilters) {
+          for (const [colKey, needle] of filterEntries) {
+            const cellText = extractSearchableText(answersObj[colKey]).toLowerCase();
+            if (!cellText.includes(needle)) return false;
+          }
+        }
+
+        if (searchLower) {
+          const metaHit = [
+            v.id,
+            v.responderName,
+            v.responderEmail,
+            v.originHost,
+            v.status,
+            v.form?.tujuan,
+            v.form?.kdNote,
+            noteTitleMap.get(v.form?.kdNote),
+          ].some((m) => (m ? String(m).toLowerCase().includes(searchLower) : false));
+
+          if (metaHit) return true;
+
+          const answerHit = Object.values(answersObj).some((val) =>
+            extractSearchableText(val).toLowerCase().includes(searchLower)
+          );
+          if (!answerHit) return false;
+        }
+
+        return true;
+      });
+
+      total = matched.length;
+      values = matched.slice(skip, skip + limit);
+    } else {
+      const [countRes, findRes] = await Promise.all([
+        this.prisma.valueForm.count({ where }),
+        this.prisma.valueForm.findMany({
+          where,
+          include: { form: { select: { id: true, tujuan: true, kdNote: true, fields: true } } },
+          orderBy,
+          skip,
+          take: limit,
+        }),
+      ]);
+      total = countRes;
+      values = findRes;
+    }
 
     const noteIds = Array.from(new Set(values.map((v) => v.form.kdNote)));
     const notes = noteIds.length
@@ -378,6 +495,7 @@ export class FlexibleFormsService {
     return {
       success: true,
       columns: dynamicColumns,
+      availableForms,
       selectedForm: selectedForm
         ? { id: selectedForm.id, tujuan: selectedForm.tujuan, kdNote: selectedForm.kdNote, sharingMode: selectedForm.sharingMode }
         : null,

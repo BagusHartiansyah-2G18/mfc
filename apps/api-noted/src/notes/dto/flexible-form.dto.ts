@@ -159,4 +159,6 @@ export interface QueryDatasetDto {
   from?: string;
   to?: string;
   sort?: string;
+  columnFilters?: string;
+  [key: string]: any;
 }

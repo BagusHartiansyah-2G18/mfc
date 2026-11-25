@@ -1,12 +1,13 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Database, Download, Eye, FileText, Loader2, RefreshCw, Search } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Database, Download, Eye, FileText, Filter, Loader2, RefreshCw, RotateCcw, Search } from 'lucide-react';
 import { Button, Input, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@org/ui';
 import { authFetch } from '@org/auth';
 import type { DatasetMetadataRow } from './types';
 
 interface NoteDatasetPageProps { apiBaseUrl?: string; onNavigate?: (path: string) => void; }
 type DatasetRow = DatasetMetadataRow & { answers?: Record<string, any> };
-type DatasetColumn = { key: string; label: string; type: string };
+type DatasetColumn = { key: string; label: string; type: string; options?: string[] };
+type AvailableFormOption = { id: string; tujuan: string; kdNote: string };
 
 function isSafeHref(url: unknown): url is string {
   if (typeof url !== 'string') return false;
@@ -109,6 +110,7 @@ function StatusBadge({ status }: { status?: string | null }) {
 export function NoteDatasetPage({ apiBaseUrl = 'http://localhost:3002/api' }: NoteDatasetPageProps) {
   const [rows, setRows] = useState<DatasetRow[]>([]);
   const [columns, setColumns] = useState<DatasetColumn[]>([]);
+  const [availableForms, setAvailableForms] = useState<AvailableFormOption[]>([]);
   const [selectedForm, setSelectedForm] = useState<any>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -120,12 +122,26 @@ export function NoteDatasetPage({ apiBaseUrl = 'http://localhost:3002/api' }: No
   const [formId, setFormId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [debouncedColumnFilters, setDebouncedColumnFilters] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailRow, setDetailRow] = useState<DatasetRow | null>(null);
 
-  useEffect(() => { const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 350); return () => clearTimeout(t); }, [search]);
+  useEffect(() => { const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 400); return () => clearTimeout(t); }, [search]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedColumnFilters(columnFilters);
+      setPage(1);
+    }, 450);
+    return () => clearTimeout(t);
+  }, [columnFilters]);
   useEffect(() => { try { const p = new URLSearchParams(window.location.search); const k = p.get('kdJudul'); const f = p.get('formId'); if (k) setKdJudul(k); if (f) setFormId(f); } catch {} }, []);
+
+  const activeColumnFilterEntries = useMemo(
+    () => Object.entries(debouncedColumnFilters).filter(([, v]) => v.trim() !== ''),
+    [debouncedColumnFilters]
+  );
 
   const fetchData = useCallback(async () => {
     try {
@@ -137,19 +153,40 @@ export function NoteDatasetPage({ apiBaseUrl = 'http://localhost:3002/api' }: No
       if (formId.trim()) params.set('formId', formId.trim());
       if (from) params.set('from', from);
       if (to) params.set('to', to);
+      if (activeColumnFilterEntries.length > 0) {
+        params.set('columnFilters', JSON.stringify(Object.fromEntries(activeColumnFilterEntries)));
+      }
       const res = await authFetch(`${apiBaseUrl}/notes/forms/dataset?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Gagal memuat dataset.');
       setRows(Array.isArray(json.data) ? json.data : []);
       setColumns(Array.isArray(json.columns) ? json.columns : []);
+      if (Array.isArray(json.availableForms)) setAvailableForms(json.availableForms);
       setSelectedForm(json.selectedForm || null);
       setTotal(Number(json.total ?? 0));
     } catch (err: any) { setError(err.message || 'Gagal memuat dataset.'); setRows([]); setColumns([]); setTotal(0); }
     finally { setIsLoading(false); }
-  }, [apiBaseUrl, page, limit, debouncedSearch, status, kdJudul, formId, from, to]);
+  }, [apiBaseUrl, page, limit, debouncedSearch, status, kdJudul, formId, from, to, activeColumnFilterEntries]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const hasAnyFilter = Boolean(
+    search.trim() || status || kdJudul.trim() || formId.trim() || from || to || Object.values(columnFilters).some((v) => v.trim() !== '')
+  );
+
+  const resetAllFilters = () => {
+    setSearch('');
+    setDebouncedSearch('');
+    setStatus('');
+    setKdJudul('');
+    setFormId('');
+    setFrom('');
+    setTo('');
+    setColumnFilters({});
+    setDebouncedColumnFilters({});
+    setPage(1);
+  };
 
   const answerEntries = useMemo(() => {
     if (!detailRow) return [] as Array<{ key: string; label: string; type?: string; value: any }>;
@@ -188,14 +225,103 @@ export function NoteDatasetPage({ apiBaseUrl = 'http://localhost:3002/api' }: No
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 rounded-xl border border-border/70 bg-muted/10 p-2.5">
-        <div className="relative lg:col-span-2"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari responden/form/catatan..." className="h-8 pl-9 text-xs bg-background" /></div>
-        <Input value={kdJudul} onChange={(e) => { setKdJudul(e.target.value); setPage(1); }} placeholder="Filter kdJudul" className="h-8 text-xs bg-background font-mono" />
-        <Input value={formId} onChange={(e) => { setFormId(e.target.value.trim()); setPage(1); }} placeholder="formId" className="h-8 text-xs bg-background font-mono" />
-        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background"><option value="">Semua Status</option><option value="DRAFT">Draft</option><option value="SUBMITTED">Submitted</option><option value="VERIFIED">Verified</option><option value="REJECTED">Rejected</option></select>
-        <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background"><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select>
-        <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background" />
-        <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background" />
+      <div className="space-y-2.5 rounded-xl border border-border/70 bg-muted/10 p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
+          <div className="relative lg:col-span-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari responden, form, catatan, atau isi jawaban..." className="h-8 pl-9 text-xs bg-background" />
+          </div>
+          <select
+            value={formId}
+            onChange={(e) => {
+              setFormId(e.target.value);
+              setColumnFilters({});
+              setDebouncedColumnFilters({});
+              setPage(1);
+            }}
+            className="h-8 px-2 text-xs rounded-lg border border-border bg-background lg:col-span-2"
+            title="Pilih Form untuk menampilkan filter per kolom jawaban"
+          >
+            <option value="">Semua Form (Pilih Form untuk Filter Kolom)</option>
+            {availableForms.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.tujuan} ({f.kdNote})
+              </option>
+            ))}
+          </select>
+          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background">
+            <option value="">Semua Status</option>
+            <option value="DRAFT">Draft</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="VERIFIED">Verified</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+          <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background">
+            <option value={10}>10 / hal</option>
+            <option value={25}>25 / hal</option>
+            <option value={50}>50 / hal</option>
+            <option value={100}>100 / hal</option>
+          </select>
+          <Input value={kdJudul} onChange={(e) => { setKdJudul(e.target.value); setPage(1); }} placeholder="Filter kdJudul" className="h-8 text-xs bg-background font-mono" />
+          <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background" title="Dari tanggal" />
+          <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background" title="Sampai tanggal" />
+          {hasAnyFilter && (
+            <Button type="button" variant="ghost" size="sm" onClick={resetAllFilters} className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground">
+              <RotateCcw className="h-3.5 w-3.5" /> Reset Filter
+            </Button>
+          )}
+        </div>
+
+        {columns.length > 0 && (
+          <div className="pt-2.5 border-t border-border/60 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                <Filter className="h-3.5 w-3.5 text-primary" />
+                Filter Jawaban per Kolom Form ({columns.length} kolom)
+              </span>
+              {Object.values(columnFilters).some((v) => v.trim() !== '') && (
+                <button
+                  type="button"
+                  onClick={() => { setColumnFilters({}); setDebouncedColumnFilters({}); setPage(1); }}
+                  className="text-[11px] text-primary hover:underline cursor-pointer"
+                >
+                  Bersihkan Filter Kolom
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {columns.map((col) => {
+                const val = columnFilters[col.key] || '';
+                return (
+                  <div key={col.key} className="space-y-1">
+                    <label className="block text-[10px] font-medium text-muted-foreground truncate" title={`${col.label} (${col.key})`}>
+                      {col.label}
+                    </label>
+                    {col.options && col.options.length > 0 ? (
+                      <select
+                        value={val}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, [col.key]: e.target.value }))}
+                        className="w-full h-8 px-2 text-xs rounded-lg border border-border bg-background"
+                      >
+                        <option value="">Semua {col.label}</option>
+                        {col.options.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        value={val}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, [col.key]: e.target.value }))}
+                        placeholder={`Filter ${col.label}...`}
+                        className="h-8 text-xs bg-background"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {error && <div className="flex items-center gap-2 p-3 text-xs rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20"><AlertCircle className="h-4 w-4 shrink-0" /><span>{error}</span></div>}
@@ -205,26 +331,53 @@ export function NoteDatasetPage({ apiBaseUrl = 'http://localhost:3002/api' }: No
           <table className="w-full text-left text-xs border-collapse">
             <thead><tr className="bg-muted/40 border-b border-border/80">
               <th className="py-2.5 px-3 whitespace-nowrap w-14">No</th>
-              <th className="py-2.5 px-3">Informasi</th>
+              {columns.length > 0 ? (
+                <>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Responden</th>
+                  {columns.map((col) => (
+                    <th key={col.key} className="py-2.5 px-3 whitespace-nowrap max-w-[200px] truncate" title={col.key}>
+                      {col.label}
+                    </th>
+                  ))}
+                  <th className="py-2.5 px-3 whitespace-nowrap">Status</th>
+                </>
+              ) : (
+                <th className="py-2.5 px-3">Informasi</th>
+              )}
               <th className="py-2.5 px-3 text-right w-28">View</th>
             </tr></thead>
             <tbody className="divide-y divide-border/50">
-              {isLoading && rows.length === 0 ? <tr><td colSpan={3} className="py-10 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />Memuat...</td></tr>
-              : rows.length === 0 ? <tr><td colSpan={3} className="py-12 text-center text-muted-foreground">Belum ada data respon yang dapat diakses.</td></tr>
+              {isLoading && rows.length === 0 ? <tr><td colSpan={columns.length > 0 ? columns.length + 4 : 3} className="py-10 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />Memuat...</td></tr>
+              : rows.length === 0 ? <tr><td colSpan={columns.length > 0 ? columns.length + 4 : 3} className="py-12 text-center text-muted-foreground">Belum ada data respon yang sesuai dengan filter.</td></tr>
               : rows.map((r, idx) => (
                 <tr key={r.id} className="hover:bg-muted/30 align-top">
                   <td className="py-3 px-3 text-muted-foreground font-mono">{(page - 1) * limit + idx + 1}</td>
-                  <td className="py-3 px-3">
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <div className="font-semibold text-foreground break-words max-w-[420px]" title={r.formTitle}>{r.formTitle || '-'}</div>
-                        {r.noteTitle && r.noteTitle !== r.formTitle && (
-                          <div className="text-[11px] text-muted-foreground break-words max-w-[300px]">{r.noteTitle}</div>
-                        )}
+                  {columns.length > 0 ? (
+                    <>
+                      <td className="py-3 px-3 min-w-[150px]">
+                        <div className="font-medium text-foreground">{r.responderName || '-'}</div>
+                        {r.responderEmail && <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">{r.responderEmail}</div>}
+                      </td>
+                      {columns.map((col) => (
+                        <td key={col.key} className="py-3 px-3 max-w-[240px]">
+                          <PreviewValue value={r.answers?.[col.key]} />
+                        </td>
+                      ))}
+                      <td className="py-3 px-3 whitespace-nowrap"><StatusBadge status={r.status} /></td>
+                    </>
+                  ) : (
+                    <td className="py-3 px-3">
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <div className="font-semibold text-foreground break-words max-w-[420px]" title={r.formTitle}>{r.formTitle || '-'}</div>
+                          {r.noteTitle && r.noteTitle !== r.formTitle && (
+                            <div className="text-[11px] text-muted-foreground break-words max-w-[300px]">{r.noteTitle}</div>
+                          )}
+                        </div>
+                        <AnswerPreview row={r} columns={columns} />
                       </div>
-                      <AnswerPreview row={r} columns={columns} />
-                    </div>
-                  </td>
+                    </td>
+                  )}
                   <td className="py-3 px-3 text-right">
                     <Button variant="outline" size="sm" onClick={() => setDetailRow(r)} className="h-7 px-2 text-xs gap-1.5"><Eye className="h-3.5 w-3.5" /> Lihat</Button>
                   </td>
