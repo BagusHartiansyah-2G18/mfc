@@ -56,6 +56,18 @@ export interface QueryNoteDto {
   search?: string;
 }
 
+export interface QueryDocumentDto {
+  page?: string | number;
+  limit?: string | number;
+  kdJudul?: string;
+  category?: string;
+  fileType?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  sort?: string;
+}
+
 export interface QuerySubNoteDto {
   id?: string;
   kdJudul?: string;

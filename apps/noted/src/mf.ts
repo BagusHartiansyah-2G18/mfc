@@ -37,6 +37,9 @@ const LOCAL_FALLBACKS: Record<string, () => Promise<any>> = {
   NotedFormResponsesPage: () =>
     import('../../compUI/src/components/noted/forms/NoteFormResponsesPage'),
   NotedDocumentsPage: () => import('../../compUI/src/components/noted/NoteDocumentsPage'),
+  NoteFormsCatalogPage: () => import('../../compUI/src/components/noted/NoteFormsCatalogPage'),
+  NoteDatasetPage: () => import('../../compUI/src/components/noted/NoteDatasetPage'),
+  FriendsHubPage: () => import('../../compUI/src/components/noted/FriendsHubPage'),
 };
 
 export function lazyProvider<Props extends object = Record<string, unknown>>(

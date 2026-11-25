@@ -22,8 +22,27 @@ import {
   UploadFormFileDto,
   QueryFormDto,
   QueryFormDataDto,
+  QueryFormCatalogDto,
+  QueryDatasetDto,
 } from './dto/flexible-form.dto';
 import { JwtAuthGuard, RequestWithUser } from '../auth/jwt-auth.guard';
+
+@Controller('notes/forms')
+export class FormsCatalogController {
+  constructor(private readonly formsService: FlexibleFormsService) {}
+
+  @Get('catalog')
+  @UseGuards(JwtAuthGuard)
+  async getCatalog(@Query() query: QueryFormCatalogDto, @Req() req: RequestWithUser) {
+    return await this.formsService.getFormsCatalog(req.user!, query);
+  }
+
+  @Get('dataset')
+  @UseGuards(JwtAuthGuard)
+  async getDataset(@Query() query: QueryDatasetDto, @Req() req: RequestWithUser) {
+    return await this.formsService.getDatasetMetadata(req.user!, query);
+  }
+}
 
 @Controller('notes/:kdJudul/forms')
 export class FlexibleFormsController {
@@ -158,6 +177,7 @@ export class FlexibleFormsController {
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
     @Query('format') format: string,
+    @Query() query: QueryFormDataDto,
     @Req() req: RequestWithUser,
     @Res() res: Response
   ) {
@@ -165,7 +185,8 @@ export class FlexibleFormsController {
       kdJudul,
       formId,
       format || 'json',
-      req.user
+      req.user,
+      query
     );
     res.setHeader('Content-Type', exported.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${exported.filename}"`);

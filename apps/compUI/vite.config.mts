@@ -53,6 +53,9 @@ export default defineConfig({
         './NotedFormsPage': './src/components/noted/forms/NoteFormsPage.tsx',
         './NotedFormResponsesPage': './src/components/noted/forms/NoteFormResponsesPage.tsx',
         './NotedDocumentsPage': './src/components/noted/NoteDocumentsPage.tsx',
+        './NoteFormsCatalogPage': './src/components/noted/NoteFormsCatalogPage.tsx',
+        './NoteDatasetPage': './src/components/noted/NoteDatasetPage.tsx',
+        './FriendsHubPage': './src/components/noted/FriendsHubPage.tsx',
       },
       shared: {
         react: { singleton: true, requiredVersion: '^19.0.0' },

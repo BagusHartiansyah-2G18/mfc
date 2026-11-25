@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Layers,
   Edit3,
@@ -11,13 +12,18 @@ import {
   Upload,
   Globe,
   Eye,
+  Paperclip,
+  Receipt,
+  ListChecks,
+  Sparkles,
+  MoreVertical,
 } from 'lucide-react';
 import { Button } from '@org/ui';
 import { type JudulNote } from './types';
-import { NoteStatusBadge, NoteStageBadge, NotePriorityBadge } from './NoteStatusBadge';
 
 interface NoteCardProps {
   note: JudulNote;
+  currentUserId?: string;
   onEdit: (note: JudulNote) => void;
   onDelete: (note: JudulNote) => void;
   onEnterSub: (note: JudulNote) => void;
@@ -27,8 +33,17 @@ interface NoteCardProps {
   onOpenSupportingDrawer?: (note: JudulNote) => void;
 }
 
+const STATUS_ACCENT: Record<JudulNote['status'], string> = {
+  DRAFT: 'from-slate-400/70 via-slate-300/30',
+  IN_PROGRESS: 'from-amber-400/80 via-amber-300/30',
+  REVIEW: 'from-sky-400/80 via-sky-300/30',
+  COMPLETED: 'from-emerald-400/80 via-emerald-300/30',
+  BLOCKED: 'from-rose-400/80 via-rose-300/30',
+};
+
 export function NoteCard({
   note,
+  currentUserId,
   onEdit,
   onDelete,
   onEnterSub,
@@ -37,6 +52,8 @@ export function NoteCard({
   onManageMedia,
   onOpenSupportingDrawer,
 }: NoteCardProps) {
+  const [actionsOpen, setActionsOpen] = useState(false);
+
   const isOverdue =
     note.dueDate && new Date(note.dueDate) < new Date() && note.status !== 'COMPLETED';
 
@@ -45,259 +62,306 @@ export function NoteCard({
   const trxCount = note.transactions?.length || 0;
   const checklistCount = note.checklists?.length || 0;
 
+  const isInProgress = note.status === 'IN_PROGRESS';
+  const isPic = Boolean(
+    currentUserId && (note.picId === currentUserId || (!note.picId && note.kdMember === currentUserId))
+  );
+  const anggaranNol = !note.targetBudget || Number(note.targetBudget) === 0;
+  const hideProgress = isPic && anggaranNol;
+
+  const stats = [
+    { key: 'files', icon: Paperclip, value: fileCount, label: 'berkas', cls: 'text-sky-600 dark:text-sky-400' },
+    { key: 'trx', icon: Receipt, value: trxCount, label: 'transaksi', cls: 'text-emerald-600 dark:text-emerald-400' },
+    { key: 'checklist', icon: ListChecks, value: checklistCount, label: 'ceklist', cls: 'text-indigo-600 dark:text-indigo-400' },
+  ].filter((s) => s.value > 0);
+
+  const hasMeta = Boolean(note.targetBudget || note.dueDate);
+  const supportingCount = trxCount + checklistCount;
+
   return (
-    <div className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card p-5 shadow-xs hover:shadow-md hover:border-primary/40 transition-all duration-200">
-      <div className="space-y-3">
-        {/* Top Badges */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
-              #{note.kdJudul}
-            </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              Level {note.tingkat}
-            </span>
-            <NoteStageBadge stage={note.stage} />
-            {note.sharingMode === 'PUBLIC' && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
-                <Globe className="h-2.5 w-2.5" /> Publik
+    <div className="group relative flex flex-col rounded-2xl border border-border/80 bg-card shadow-xs hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5 hover:z-20 transition-all duration-200">
+      {/* Status accent strip */}
+      <div className={`h-1 w-full rounded-t-2xl bg-gradient-to-r ${STATUS_ACCENT[note.status]} to-transparent`} />
+
+      <div className="flex flex-1 items-stretch gap-3 p-4 sm:p-5">
+        {/* Main content */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="space-y-3">
+            {/* Top Badges: Level + Sharing + AI */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                Level {note.tingkat}
               </span>
-            )}
-            {note.sharingMode === 'KHUSUS' && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center gap-1">
-                <Users className="h-2.5 w-2.5" /> Khusus
-              </span>
-            )}
-          </div>
+              {note.sharingMode === 'PUBLIC' && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                  <Globe className="h-2.5 w-2.5" /> Publik
+                </span>
+              )}
+              {note.sharingMode === 'KHUSUS' && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center gap-1">
+                  <Users className="h-2.5 w-2.5" /> Khusus
+                </span>
+              )}
+              {note.isAiGenerated && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20 flex items-center gap-1">
+                  <Sparkles className="h-2.5 w-2.5" /> AI
+                </span>
+              )}
 
-          <div className="flex items-center gap-1.5">
-            <NotePriorityBadge priority={note.priority} />
-            <NoteStatusBadge status={note.status} />
-          </div>
-        </div>
+              {(collaboratorCount > 0 || note.picName) && (
+                <span className="mx-0.5 h-3 w-px bg-border/70" />
+              )}
 
-        {/* Title & Summary */}
-        <div
-          onClick={() => (onView ? onView(note) : onEnterSub(note))}
-          className="cursor-pointer group/title"
-          title="Klik untuk membuka Mode Baca Catatan"
-        >
-          <h3 className="font-bold text-base text-foreground group-hover/title:text-primary group-hover/title:underline transition-colors line-clamp-2">
-            {note.judul}
-          </h3>
-          <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
-            {note.ringkasan || 'Tidak ada ringkasan keterangan.'}
-          </p>
-        </div>
+              {collaboratorCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"
+                  title={`${collaboratorCount} anggota tim`}
+                >
+                  <Users className="h-3 w-3 shrink-0 text-primary" />
+                  <span className="font-bold text-foreground">{collaboratorCount}</span>
+                  <span>anggota</span>
+                </span>
+              )}
 
-        {/* Progress Bar */}
-        <div className="space-y-1 pt-1">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-muted-foreground font-medium">Progres Aktivitas</span>
-            <span className="font-bold text-foreground font-mono">{note.progress || 0}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              {note.picName && (
+                <span
+                  className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-muted-foreground"
+                  title={`PIC: ${note.picName}`}
+                >
+                  <User className="h-3 w-3 shrink-0 text-indigo-500" />
+                  <span className="truncate max-w-[150px]">{note.picName}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Title & Summary */}
             <div
-              className={`h-full rounded-full transition-all ${
-                note.progress >= 100
-                  ? 'bg-emerald-500'
-                  : note.progress >= 50
-                  ? 'bg-primary'
-                  : 'bg-amber-500'
-              }`}
-              style={{ width: `${note.progress || 0}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Enterprise Metrics: Budget, Due Date, PIC */}
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 text-[11px]">
-          {note.targetBudget !== undefined && note.targetBudget !== null && (
-            <div className="flex items-center gap-1.5 text-muted-foreground truncate">
-              <Wallet className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-              <span className="truncate">
-                Pagu: <strong>Rp {Number(note.targetBudget).toLocaleString('id-ID')}</strong>
-              </span>
-            </div>
-          )}
-
-          {note.dueDate && (
-            <div
-              className={`flex items-center gap-1.5 truncate ${
-                isOverdue ? 'text-rose-600 font-bold' : 'text-muted-foreground'
-              }`}
+              onClick={() => (onView ? onView(note) : onEnterSub(note))}
+              className="cursor-pointer group/title"
+              title="Klik untuk membuka Mode Baca Catatan"
             >
-              <Calendar className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">
-                {isOverdue ? 'Terlambat: ' : 'Deadline: '}
-                {new Date(note.dueDate).toLocaleDateString('id-ID')}
-              </span>
+              <h3
+                className={`font-bold text-base group-hover/title:underline transition-colors line-clamp-2 ${
+                  isInProgress
+                    ? 'text-amber-600 dark:text-amber-400 group-hover/title:text-amber-700 dark:group-hover/title:text-amber-300'
+                    : 'text-foreground group-hover/title:text-primary'
+                }`}
+              >
+                {note.judul}
+              </h3>
+              <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
+                {note.ringkasan || 'Tidak ada ringkasan keterangan.'}
+              </p>
             </div>
-          )}
 
-          {note.picName && (
-            <div className="flex items-center gap-1.5 text-muted-foreground truncate col-span-2">
-              <User className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-              <span className="truncate">PIC: <strong>{note.picName}</strong></span>
-            </div>
-          )}
-        </div>
+            {/* Progress Bar (conditional) */}
+            {!hideProgress && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground font-medium">Progres Aktivitas</span>
+                  <span className="font-bold text-foreground font-mono">{note.progress || 0}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      note.progress >= 100
+                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                        : note.progress >= 50
+                        ? 'bg-gradient-to-r from-primary to-indigo-500'
+                        : 'bg-gradient-to-r from-amber-500 to-amber-400'
+                    }`}
+                    style={{ width: `${note.progress || 0}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
-        {/* Collaborator Avatars & Quick Stats */}
-        <div className="pt-2.5 border-t border-border/40">
-          <div className="flex items-center justify-between gap-2">
-            {/* Team Stack */}
-            <button
-              type="button"
-              onClick={() => onManageMembers?.(note)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group/team cursor-pointer shrink-0"
-              title="Kelola Tim & Follower"
-            >
-              <div className="flex -space-x-1.5 overflow-hidden">
-                {note.collaborators && note.collaborators.length > 0 ? (
-                  note.collaborators.slice(0, 3).map((c, i) => (
-                    <div
-                      key={c.id || i}
-                      className="inline-block h-5 w-5 rounded-full ring-2 ring-card bg-primary/20 text-primary font-bold text-[9px] flex items-center justify-center shrink-0"
-                      title={`${c.userName} (${c.role})`}
-                    >
-                      {c.userName.charAt(0).toUpperCase()}
-                    </div>
-                  ))
-                ) : (
-                  <div className="h-5 w-5 rounded-full ring-2 ring-card bg-muted text-muted-foreground text-[10px] flex items-center justify-center shrink-0">
-                    <Users className="h-3 w-3" />
+            {/* Stats Chips */}
+            {stats.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {stats.map(({ key, icon: Icon, value, label, cls }) => (
+                  <span
+                    key={key}
+                    className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-2 py-1"
+                    title={`${value} ${label}`}
+                  >
+                    <Icon className={`h-3 w-3 ${cls}`} />
+                    <span className="text-[10px] font-bold text-foreground">{value}</span>
+                    <span className="text-[10px] text-muted-foreground">{label}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Meta: Budget, Due Date */}
+            {hasMeta && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-2.5 border-t border-border/50 text-[11px]">
+                {note.targetBudget !== undefined && note.targetBudget !== null && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+                    <Wallet className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">
+                      Pagu: <strong>Rp {Number(note.targetBudget).toLocaleString('id-ID')}</strong>
+                    </span>
+                  </div>
+                )}
+
+                {note.dueDate && (
+                  <div
+                    className={`flex items-center gap-1.5 min-w-0 ${
+                      isOverdue ? 'text-rose-600 font-bold' : 'text-muted-foreground'
+                    }`}
+                  >
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {isOverdue ? 'Terlambat: ' : 'Deadline: '}
+                      {new Date(note.dueDate).toLocaleDateString('id-ID')}
+                    </span>
                   </div>
                 )}
               </div>
-              <span className="text-[11px] group-hover/team:text-primary font-medium">
-                {collaboratorCount > 0 ? `${collaboratorCount} Anggota` : 'Atur Tim'}
-              </span>
-            </button>
+            )}
+          </div>
 
-            {/* Quick Metadata Stats */}
-            <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground">
-              {(trxCount > 0 || checklistCount > 0) && (
-                <span
-                  className="inline-flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-md font-semibold text-indigo-600 dark:text-indigo-400"
-                  title={`${trxCount} Transaksi, ${checklistCount} Ceklist`}
-                >
-                  <SlidersHorizontal className="h-3 w-3" />
-                  <span>{trxCount + checklistCount}</span>
-                </span>
-              )}
-              {fileCount > 0 && (
-                <span
-                  className="inline-flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-md font-semibold text-emerald-600 dark:text-emerald-400"
-                  title={`${fileCount} Berkas Terlampir`}
-                >
-                  <Upload className="h-3 w-3" />
-                  <span>{fileCount}</span>
-                </span>
-              )}
-            </div>
+          <div className="flex-1" />
+
+          {/* Primary actions */}
+          <div className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3">
+            {onView && (
+              <Button
+                onClick={() => onView(note)}
+                className="flex-1 h-8 text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+                title="Mode Baca: Buka lembar dokumen & baca rinci"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>Buka</span>
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => onEnterSub(note)}
+              className="flex-1 h-8 px-2.5 text-xs font-semibold gap-1 border-border/80 hover:bg-muted/60 cursor-pointer"
+              title="Buka Hirarki Sub-Catatan Turunan"
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Turunan</span>
+              <ArrowRightCircle className="h-3.5 w-3.5 opacity-70" />
+            </Button>
           </div>
         </div>
-      </div>
 
-      {/* Card Action Footer: Clean Icon-Only Action Buttons with Rich Tooltips */}
-      <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between gap-1.5 flex-wrap">
-        <div className="flex items-center gap-1 flex-wrap">
-          {onView && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => onView(note)}
-              className="h-8 w-8 text-primary hover:bg-primary/10 border-primary/30 cursor-pointer shadow-2xs"
-              title="Mode Baca: Buka lembar dokumen & baca rinci"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-          )}
-
-          {onOpenSupportingDrawer && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => onOpenSupportingDrawer(note)}
-              className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 border-indigo-500/30 cursor-pointer shadow-2xs relative"
-              title={`Form Pendukung: Transaksi, Ceklist, Dinamis (${trxCount + checklistCount} data) - Buka di Tab Baru`}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              {(trxCount > 0 || checklistCount > 0) && (
-                <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[8px] h-3.5 min-w-3.5 px-0.5 rounded-full flex items-center justify-center font-bold">
-                  {trxCount + checklistCount}
-                </span>
-              )}
-            </Button>
-          )}
-
-          {onManageMedia && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => onManageMedia(note)}
-              className="h-8 w-8 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 border-emerald-500/30 cursor-pointer shadow-2xs relative"
-              title={`Form Upload: Berkas & Media Terlampir (${fileCount} berkas)`}
-            >
-              <Upload className="h-4 w-4" />
-              {fileCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[8px] h-3.5 min-w-3.5 px-0.5 rounded-full flex items-center justify-center font-bold">
-                  {fileCount}
-                </span>
-              )}
-            </Button>
-          )}
-
-          {onManageMembers && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => onManageMembers(note)}
-              className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 border-border/80 cursor-pointer shadow-2xs relative"
-              title={`Kelola Tim: Kolaborator & RACI (${collaboratorCount} anggota)`}
-            >
-              <Users className="h-4 w-4" />
-              {collaboratorCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] h-3.5 min-w-3.5 px-0.5 rounded-full flex items-center justify-center font-bold">
-                  {collaboratorCount}
-                </span>
-              )}
-            </Button>
-          )}
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onEdit(note)}
-            className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 hover:border-amber-500/40 border-border/80 cursor-pointer shadow-2xs"
-            title="Edit Catatan: Ubah informasi dan dokumen catatan"
-          >
-            <Edit3 className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onDelete(note)}
-            className="h-8 w-8 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 hover:border-rose-500/40 border-border/80 cursor-pointer shadow-2xs"
-            title="Hapus Catatan: Hapus catatan beserta seluruh turunannya"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => onEnterSub(note)}
-          className="h-8 px-2.5 text-xs font-semibold gap-1 shadow-xs bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shrink-0"
-          title="Buka Hirarki Sub-Catatan Turunan"
+        {/* More actions: single trigger, flyout on hover/click */}
+        <div
+          className="relative flex shrink-0 flex-col items-center self-start pl-2"
+          onMouseEnter={() => setActionsOpen(true)}
+          onMouseLeave={() => setActionsOpen(false)}
         >
-          <Layers className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Turunan</span>
-          <ArrowRightCircle className="h-3.5 w-3.5 ml-0.5 opacity-80" />
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setActionsOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={actionsOpen}
+            className={`h-8 w-8 cursor-pointer ${actionsOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+            title="Aksi lainnya"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+
+          <div
+            role="menu"
+            className={`absolute right-full top-0 z-40 w-56 origin-top-right rounded-xl border border-border bg-popover p-1 shadow-xl transition-all duration-150 ${
+              actionsOpen
+                ? 'visible translate-x-0 opacity-100 pointer-events-auto'
+                : 'invisible translate-x-1 opacity-0 pointer-events-none'
+            }`}
+          >
+            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Aksi Catatan
+            </div>
+
+            {onOpenSupportingDrawer && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onOpenSupportingDrawer(note);
+                  setActionsOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                <span className="flex-1">Form Pendukung</span>
+                {supportingCount > 0 && (
+                  <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">{supportingCount}</span>
+                )}
+              </button>
+            )}
+
+            {onManageMedia && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onManageMedia(note);
+                  setActionsOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
+              >
+                <Upload className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span className="flex-1">Form Upload</span>
+                {fileCount > 0 && (
+                  <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{fileCount}</span>
+                )}
+              </button>
+            )}
+
+            {onManageMembers && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onManageMembers(note);
+                  setActionsOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
+              >
+                <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="flex-1">Kelola Tim</span>
+                {collaboratorCount > 0 && (
+                  <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{collaboratorCount}</span>
+                )}
+              </button>
+            )}
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onEdit(note);
+                setActionsOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
+            >
+              <Edit3 className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span className="flex-1">Edit Catatan</span>
+            </button>
+
+            <div className="my-1 h-px bg-border" />
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onDelete(note);
+                setActionsOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-500/10 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1">Hapus Catatan</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

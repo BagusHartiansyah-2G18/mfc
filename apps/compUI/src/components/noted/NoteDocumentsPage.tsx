@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { Button, Input } from '@org/ui';
 import {
   AlertCircle,
@@ -55,14 +55,14 @@ export function NoteDocumentsPage({
   };
 
   useEffect(() => {
-    if (!initialKdJudul) {
-      try {
-        const fromQuery = new URLSearchParams(window.location.search).get('kdJudul');
-        if (fromQuery) setKdJudul(fromQuery);
-      } catch {
-        // ignore
-      }
-    }
+    if (initialKdJudul) { setKdJudul(initialKdJudul); return; }
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get('kdJudul') || params.get('note');
+      const fromActive = localStorage.getItem('noted_active_kdJudul') || '';
+      const next = fromQuery || fromActive || '';
+      if (next) setKdJudul(next);
+    } catch { /* ignore */ }
   }, [initialKdJudul]);
 
   useEffect(() => {
@@ -146,19 +146,10 @@ export function NoteDocumentsPage({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Input value={kdJudul} onChange={(e) => { setKdJudul(e.target.value.trim()); setPage(1); }} placeholder="Filter kdJudul catatan aktif..." className="h-8 text-xs w-48 bg-background font-mono" />
           {kdJudul && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setKdJudul('');
-                setPage(1);
-                go('/documents');
-              }}
-              className="h-8 text-xs gap-1.5"
-            >
-              <Globe className="h-3.5 w-3.5" /> Semua Catatan
+            <Button type="button" variant="outline" size="sm" onClick={() => { setKdJudul(''); setPage(1); go('/documents'); }} className="h-8 text-xs gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> Semua
             </Button>
           )}
           <Button
@@ -185,7 +176,7 @@ export function NoteDocumentsPage({
             className="h-8 pl-9 text-xs bg-background"
           />
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <select
             value={category}
             onChange={(e) => {
@@ -394,3 +385,4 @@ export function NoteDocumentsPage({
     </div>
   );
 }
+

@@ -126,6 +126,18 @@ export interface QueryFormDto {
   sort?: string;
 }
 
+export interface QueryFormCatalogDto {
+  page?: string | number;
+  limit?: string | number;
+  search?: string;
+  kdJudul?: string;
+  sharingMode?: 'PUBLIC' | 'KHUSUS' | 'PRIVATE';
+  isLocked?: string | boolean;
+  from?: string;
+  to?: string;
+  sort?: string;
+}
+
 export interface QueryFormDataDto {
   format?: string;
   search?: string;
@@ -134,4 +146,17 @@ export interface QueryFormDataDto {
   to?: string;
   page?: string | number;
   limit?: string | number;
+  sort?: string;
+}
+
+export interface QueryDatasetDto {
+  page?: string | number;
+  limit?: string | number;
+  search?: string;
+  formId?: string;
+  kdJudul?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  sort?: string;
 }

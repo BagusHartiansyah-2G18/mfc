@@ -19,6 +19,9 @@ import {
   Wallet,
   Layers,
   Globe,
+  FolderOpen,
+  ClipboardList,
+  UserPlus,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -43,6 +46,10 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   wallet: Wallet,
   layers: Layers,
   globe: Globe,
+  "folder-open": FolderOpen,
+  "clipboard-list": ClipboardList,
+  "user-plus": UserPlus,
+  dataset: Database,
 }
 
 export function getIcon(name?: string): LucideIcon {

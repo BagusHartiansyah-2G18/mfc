@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   RefreshCw,
@@ -9,7 +9,6 @@ import {
   AlertCircle,
   TrendingUp,
   Users,
-  FileText,
   Upload,
   SlidersHorizontal,
   Globe,
@@ -20,11 +19,12 @@ import {
   Trash2,
   ArchiveX,
   CheckCircle2,
+  Search,
+  SearchX,
   Info,
-  Edit3,
-  Layers,
+  ArrowUpDown,
 } from 'lucide-react';
-import { Button } from '@org/ui';
+import { Button, Input, Pagination } from '@org/ui';
 import { useAuth, setSession, authFetch } from '@org/auth';
 import {
   type JudulNote,
@@ -48,9 +48,12 @@ export interface NotedViewProps {
   onNavigate?: (path: string) => void;
   initialTab?: 'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG';
   activeTab?: 'MY_NOTES' | 'SHARED_WITH_ME' | 'PUBLIC_CATALOG';
+  showInternalTabs?: boolean;
 }
 
-export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: NotedViewProps) {
+const PAGE_SIZE = 10;
+
+export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab, showInternalTabs = true }: NotedViewProps) {
   const { session, isDevBypass } = useAuth();
 
   const baseUrl = (
@@ -88,6 +91,14 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
   const [sharedNotes, setSharedNotes] = useState<JudulNote[]>([]);
   const [publicNotes, setPublicNotes] = useState<JudulNote[]>([]);
 
+  // List toolbar: search + pagination
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [mainTab, searchQuery]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,7 +132,7 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
     judul: string;
   } | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [, setIsLoadingPreview] = useState(false);
 
   // Copy Link Feedback State
   const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null);
@@ -259,19 +270,14 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
     fetchPublicNotes();
   }, [fetchRootNotes, fetchSharedNotes, fetchPublicNotes]);
 
-  // Deep-link dari navigasi Workspace: ?panel=friend atau ?tab=publikasi
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('panel') === 'friend') {
-        setIsFriendsModalOpen(true);
-      }
-      if (params.get('tab') === 'publikasi') {
-        setMainTab('PUBLIC_CATALOG');
-      }
-    } catch {
-      // ignore
-    }
+      if (params.get('panel') === 'friend') setIsFriendsModalOpen(true);
+      if (params.get('tab') === 'publikasi') setMainTab('PUBLIC_CATALOG');
+      const kd = params.get('kdJudul') || params.get('note');
+      if (kd) localStorage.setItem('noted_active_kdJudul', kd);
+    } catch { /* ignore */ }
   }, []);
 
   // Navigation: Go back to Root
@@ -284,6 +290,7 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
 
   // Navigation: Jump to breadcrumb level
   const handleSelectLevel = (breadcrumbItem: NoteBreadcrumb, _index: number) => {
+    try { localStorage.setItem('noted_active_kdJudul', breadcrumbItem.kdJudul); } catch {}
     fetchSubNotes({
       kdJudul: breadcrumbItem.kdJudul,
       judul: breadcrumbItem.judul,
@@ -357,7 +364,7 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
     }
   };
 
-  // CRUD: Delete Note — Step 1: Fetch preview info dan tampilkan dialog konfirmasi
+  // CRUD: Delete Note â€” Step 1: Fetch preview info dan tampilkan dialog konfirmasi
   const handleDeleteNote = async (note: JudulNote) => {
     try {
       setIsLoadingPreview(true);
@@ -377,7 +384,7 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
     }
   };
 
-  // CRUD: Delete Note — Step 2: Konfirmasi → Arsipkan (soft delete)
+  // CRUD: Delete Note â€” Step 2: Konfirmasi â†’ Arsipkan (soft delete)
   const handleConfirmArchive = async () => {
     if (!deleteConfirmNote) return;
     try {
@@ -553,25 +560,46 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
     } catch {}
   }, [rootNotes, subNotes, publicNotes]);
 
+  // Derive the active list: default sort by createdAt desc, then search + paginate (max 10/page)
+  const tabBaseList =
+    mainTab === 'MY_NOTES' ? rootNotes : mainTab === 'SHARED_WITH_ME' ? sharedNotes : publicNotes;
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const isSearching = normalizedQuery.length > 0;
+  const sortedNotes = [...tabBaseList].sort((a, b) => {
+    const aTime = new Date(a.createdAt ?? a.updatedAt ?? 0).getTime();
+    const bTime = new Date(b.createdAt ?? b.updatedAt ?? 0).getTime();
+    return bTime - aTime;
+  });
+  const filteredNotes = isSearching
+    ? sortedNotes.filter((n) =>
+        [n.judul, n.ringkasan, n.kdJudul, n.picName, n.tags]
+          .filter((v): v is string => Boolean(v))
+          .some((v) => v.toLowerCase().includes(normalizedQuery))
+      )
+    : sortedNotes;
+  const totalItems = filteredNotes.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedNotes = filteredNotes.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const rangeStart = totalItems === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, totalItems);
+  const tabTitle =
+    mainTab === 'MY_NOTES'
+      ? 'Daftar Seluruh Catatan Induk'
+      : mainTab === 'SHARED_WITH_ME'
+      ? 'Catatan yang Dibagikan oleh Rekan'
+      : 'Katalog Terbuka Publik';
+
   return (
     <div className="w-full space-y-6">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/80 pb-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-2xs">
-              <BookOpen className="h-5 w-5" />
-            </div>
             <div>
               <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                <span>Pusat Catatan Proyek & Hierarki MFC</span>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  Host :4203
-                </span>
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Sistem manajemen hierarki catatan dekomposisi tak terbatas (1, 1MFC1, 1MFC1#1) terintegrasi microservice.
-              </p>
+                <span>Catatan Hierarki</span> 
+              </h2> 
             </div>
           </div>
         </div>
@@ -580,13 +608,13 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={() => setIsExportOpen(true)}
-            className="text-xs gap-1.5 cursor-pointer shadow-2xs"
-            title="Ekspor Dokumen Pertanggungjawaban / WBS"
+            className="h-8 w-8 cursor-pointer shadow-2xs"
+            title="Ekspor WBS / LPJ"
+            aria-label="Ekspor WBS / LPJ"
           >
             <FileDown className="h-3.5 w-3.5" />
-            <span>Ekspor WBS / LPJ</span>
           </Button>
 
           {selectedParent ? (
@@ -602,13 +630,14 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
           ) : (
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={handleRefreshCurrentView}
               disabled={isLoading}
-              className="text-xs gap-1.5 cursor-pointer shadow-2xs"
+              className="h-8 w-8 cursor-pointer shadow-2xs"
+              title="Segarkan Data"
+              aria-label="Segarkan Data"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
             </Button>
           )}
 
@@ -715,7 +744,7 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
                     title="Buat Otomatis 5 Tahapan MFC (Analisis, UI, Dev, Test, Deploy)"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    <span>⚡ Auto-Generate 5 Tahapan</span>
+                    <span>âš¡ Auto-Generate 5 Tahapan</span>
                   </Button>
                 )}
 
@@ -819,156 +848,67 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
       ) : (
         /* VIEW MODE: Multi-Tab Central Data Hub */
         <div className="space-y-5">
-          {/* Top 3-Tier Publication & Friends Navigation Bar */}
+          {showInternalTabs && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
             <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/50 text-xs flex-wrap">
-              <button
-                type="button"
-                onClick={() => {
-                  setMainTab('MY_NOTES');
-                  if (onNavigate) {
-                    onNavigate('/');
-                  } else if (typeof window !== 'undefined') {
-                    window.history.pushState({}, '', '/noted');
-                  }
-                  fetchRootNotes();
-                }}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  mainTab === 'MY_NOTES'
-                    ? 'bg-card text-foreground shadow-xs border border-border/40'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <BookOpen className="h-3.5 w-3.5 text-primary" />
-                <span>Catatan Saya</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-primary/10 text-primary">
-                  {rootNotes.length}
-                </span>
+              <button type="button" onClick={() => { setMainTab('MY_NOTES'); onNavigate ? onNavigate('/') : window.history.pushState({}, '', '/noted'); fetchRootNotes(); }} className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${mainTab === 'MY_NOTES' ? 'bg-card text-foreground shadow-xs border border-border/40' : 'text-muted-foreground hover:text-foreground'}`}>
+                <BookOpen className="h-3.5 w-3.5 text-primary" /><span>Catatan Saya</span><span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-primary/10 text-primary">{rootNotes.length}</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMainTab('SHARED_WITH_ME');
-                  if (onNavigate) {
-                    onNavigate('/shared');
-                  } else if (typeof window !== 'undefined') {
-                    window.history.pushState({}, '', '/noted/shared');
-                  }
-                  fetchSharedNotes();
-                }}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  mainTab === 'SHARED_WITH_ME'
-                    ? 'bg-card text-foreground shadow-xs border border-border/40'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Users className="h-3.5 w-3.5 text-indigo-500" />
-                <span>Dibagikan ke Saya</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-indigo-500/10 text-indigo-600">
-                  {sharedNotes.length}
-                </span>
+              <button type="button" onClick={() => { setMainTab('SHARED_WITH_ME'); onNavigate ? onNavigate('/shared') : window.history.pushState({}, '', '/noted/shared'); fetchSharedNotes(); }} className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${mainTab === 'SHARED_WITH_ME' ? 'bg-card text-foreground shadow-xs border border-border/40' : 'text-muted-foreground hover:text-foreground'}`}>
+                <Users className="h-3.5 w-3.5 text-indigo-500" /><span>Dibagikan ke Saya</span><span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-indigo-500/10 text-indigo-600">{sharedNotes.length}</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMainTab('PUBLIC_CATALOG');
-                  if (onNavigate) {
-                    onNavigate('/public');
-                  } else if (typeof window !== 'undefined') {
-                    window.history.pushState({}, '', '/noted/public');
-                  }
-                  fetchPublicNotes();
-                }}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  mainTab === 'PUBLIC_CATALOG'
-                    ? 'bg-card text-foreground shadow-xs border border-border/40'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Globe className="h-3.5 w-3.5 text-emerald-500" />
-                <span>Katalog Publik</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-600">
-                  {publicNotes.length}
-                </span>
+              <button type="button" onClick={() => { setMainTab('PUBLIC_CATALOG'); onNavigate ? onNavigate('/public') : window.history.pushState({}, '', '/noted/public'); fetchPublicNotes(); }} className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${mainTab === 'PUBLIC_CATALOG' ? 'bg-card text-foreground shadow-xs border border-border/40' : 'text-muted-foreground hover:text-foreground'}`}>
+                <Globe className="h-3.5 w-3.5 text-emerald-500" /><span>Katalog Publik</span><span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-600">{publicNotes.length}</span>
               </button>
             </div>
-
-            {/* Friend List Manager Action Button */}
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsFriendsModalOpen(true)}
-                className="text-xs gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 cursor-pointer shadow-2xs"
-                title="Kelola Daftar Rekan / Anggota untuk Distribusi Form & Catatan"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                <span>Kelola Rekan (Friends Hub)</span>
+              <Button variant="outline" size="sm" onClick={() => setIsFriendsModalOpen(true)} className="text-xs gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 cursor-pointer shadow-2xs" title="Kelola Daftar Rekan / Anggota untuk Distribusi Form & Catatan">
+                <UserPlus className="h-3.5 w-3.5" /><span>Kelola Rekan (Friends Hub)</span>
               </Button>
             </div>
           </div>
-
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-            <span>
-              {mainTab === 'MY_NOTES' && `Daftar Seluruh Catatan Induk (${rootNotes.length} item)`}
-              {mainTab === 'SHARED_WITH_ME' && `Catatan yang Dibagikan oleh Rekan (${sharedNotes.length} item)`}
-              {mainTab === 'PUBLIC_CATALOG' && `Katalog Terbuka Publik / Tanpa Login (${publicNotes.length} item)`}
-            </span>
-            {isDevBypass && (
-              <span className="text-[11px] bg-amber-500/10 text-amber-600 border border-amber-500/20 px-2 py-0.5 rounded-md">
-                Mode Bypass Aktif
-              </span>
-            )}
-          </div>
-
-          {/* Action Buttons Guide / Legend */}
-          {mainTab !== 'PUBLIC_CATALOG' && (
-            <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground bg-muted/30 border border-border/60 px-3 py-1.5 rounded-xl flex-wrap">
-              <span className="font-bold text-foreground flex items-center gap-1">
-                <Info className="h-3.5 w-3.5 text-primary" /> Petunjuk Tombol Aksi:
-              </span>
-              <span className="inline-flex items-center gap-1" title="Buka Dokumen Lengkap & Mode Baca">
-                <Eye className="h-3 w-3 text-primary" /> <span>Mode Baca</span>
-              </span>
-              <span className="text-border">&bull;</span>
-              <span className="inline-flex items-center gap-1" title="Buka Form Pendukung (Tab Baru)">
-                <SlidersHorizontal className="h-3 w-3 text-indigo-500" /> <span>Form Pendukung</span>
-              </span>
-              <span className="text-border">&bull;</span>
-              <span className="inline-flex items-center gap-1" title="Form Upload Berkas Media">
-                <Upload className="h-3 w-3 text-emerald-500" /> <span>Upload</span>
-              </span>
-              <span className="text-border">&bull;</span>
-              <span className="inline-flex items-center gap-1" title="Kelola Anggota Tim & Kolaborator">
-                <Users className="h-3 w-3 text-primary" /> <span>Atur Tim</span>
-              </span>
-              <span className="text-border">&bull;</span>
-              <span className="inline-flex items-center gap-1" title="Edit Data Catatan">
-                <Edit3 className="h-3 w-3 text-amber-500" /> <span>Edit</span>
-              </span>
-              <span className="text-border">&bull;</span>
-              <span className="inline-flex items-center gap-1" title="Hapus Catatan">
-                <Trash2 className="h-3 w-3 text-rose-500" /> <span>Hapus</span>
-              </span>
-              <span className="text-border">&bull;</span>
-              <span className="inline-flex items-center gap-1" title="Jelajahi Sub-Catatan Turunan">
-                <Layers className="h-3 w-3 text-foreground" /> <span>Hirarki Turunan</span>
-              </span>
-            </div>
           )}
+
+          <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Info className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate">
+                {tabTitle} ·{' '}
+                <strong className="text-foreground">
+                  {isSearching ? `${totalItems} hasil` : `${tabBaseList.length} catatan`}
+                </strong>
+              </span>
+              <span className="hidden md:inline-flex items-center gap-1 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground" title="Diurutkan berdasarkan tanggal dibuat terbaru">
+                <ArrowUpDown className="h-3 w-3" /> Terbaru
+              </span>
+              {isDevBypass && (
+                <span className="text-[10px] bg-amber-500/10 text-amber-600 border border-amber-500/20 px-2 py-0.5 rounded-md">Bypass</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Cari judul, ringkasan, kode..."
+                  className="h-8 bg-background pl-8 text-xs"
+                />
+              </div>
+              {!showInternalTabs && (
+                <Button variant="outline" size="sm" onClick={() => setIsFriendsModalOpen(true)} className="h-8 shrink-0 text-[11px] gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 cursor-pointer">
+                  <UserPlus className="h-3.5 w-3.5" /><span>Kelola Rekan</span>
+                </Button>
+              )}
+            </div>
+          </div>
 
           {/* Grid Content or Empty State */}
           {(() => {
-            const currentList =
-              mainTab === 'MY_NOTES'
-                ? rootNotes
-                : mainTab === 'SHARED_WITH_ME'
-                ? sharedNotes
-                : publicNotes;
-
-            if (currentList.length === 0 && !isLoading) {
+            if (tabBaseList.length === 0 && !isLoading) {
               return (
                 <div className="rounded-2xl border-2 border-dashed border-border/80 p-12 text-center space-y-3">
                   <div className="h-12 w-12 rounded-2xl bg-muted/80 flex items-center justify-center text-muted-foreground mx-auto">
@@ -1018,10 +958,34 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
               );
             }
 
+            if (totalItems === 0) {
+              return (
+                <div className="rounded-2xl border-2 border-dashed border-border/80 p-12 text-center space-y-3">
+                  <div className="h-12 w-12 rounded-2xl bg-muted/80 flex items-center justify-center text-muted-foreground mx-auto">
+                    <SearchX className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-base text-foreground">Tidak Ada Hasil</h4>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      Tidak ada catatan yang cocok dengan kata kunci &ldquo;{searchQuery.trim()}&rdquo;.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs font-semibold gap-1.5 cursor-pointer"
+                  >
+                    <Search className="h-3.5 w-3.5" /> Hapus Pencarian
+                  </Button>
+                </div>
+              );
+            }
+
             return (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {currentList.map((note) => {
-                  // Kartu khusus untuk Katalog Publik — tampilkan 2 aksi: Salin + Akses
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
+                {pagedNotes.map((note) => {
+                  // Kartu khusus untuk Katalog Publik â€” tampilkan 2 aksi: Salin + Akses
                   if (mainTab === 'PUBLIC_CATALOG') {
                     const isCopied = copiedNoteId === note.kdJudul;
                     return (
@@ -1097,6 +1061,7 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
                     <NoteCard
                       key={`${note.kdJudul}-${note.tingkat}`}
                       note={note}
+                      currentUserId={session?.id}
                       onView={handleOpenReader}
                       onEdit={(n) => {
                         setEditingNote(n);
@@ -1113,6 +1078,25 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
               </div>
             );
           })()}
+
+          {totalItems > 0 && (
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-4 sm:flex-row">
+              <span className="text-[11px] text-muted-foreground">
+                Menampilkan{' '}
+                <strong className="text-foreground">
+                  {rangeStart}–{rangeEnd}
+                </strong>{' '}
+                dari <strong className="text-foreground">{totalItems}</strong> catatan
+              </span>
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1202,7 +1186,7 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
         onChecklistToggled={() => handleRefreshCurrentView()}
       />
 
-      {/* Soft-Delete Confirm Dialog — Konfirmasi Arsip dengan Info Turunan */}
+      {/* Soft-Delete Confirm Dialog â€” Konfirmasi Arsip dengan Info Turunan */}
       {isDeleteConfirmOpen && deleteConfirmNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
@@ -1219,7 +1203,7 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
               </div>
               <div>
                 <h3 className="font-bold text-base text-foreground">Pindahkan ke Arsip?</h3>
-                <p className="text-xs text-muted-foreground">Catatan tidak dihapus permanen — dapat dipulihkan</p>
+                <p className="text-xs text-muted-foreground">Catatan tidak dihapus permanen â€” dapat dipulihkan</p>
               </div>
             </div>
 
@@ -1291,3 +1275,4 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab }: Not
 }
 
 export default NotedView;
+

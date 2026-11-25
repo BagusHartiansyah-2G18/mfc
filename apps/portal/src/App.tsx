@@ -14,8 +14,10 @@ import {
   CardHeader,
   CardTitle,
   type FeatureMenu,
+  SubNav,
+  DashSidebar,
 } from '@org/ui';
-import { AlertTriangle, RefreshCw, LogOut, LayoutGrid, ExternalLink, Layers } from 'lucide-react';
+import { AlertTriangle, RefreshCw, LogOut, LayoutGrid, ExternalLink, Layers, Users, Globe, FolderOpen, ClipboardList, Database, UserPlus } from 'lucide-react';
 import { lazyProvider } from './mf';
 import { loadFeatureMenu } from './config/feature';
 import { SoftwareHouseLanding } from './pages/SoftwareHouseLanding';
@@ -156,6 +158,18 @@ const RemoteNotedDocumentsPage = lazyProvider<{
   apiBaseUrl?: string;
   onNavigate?: (path: string) => void;
 }>('compUI', 'NotedDocumentsPage');
+const RemoteNotedFormsCatalogPage = lazyProvider<{
+  apiBaseUrl?: string;
+  onNavigate?: (path: string) => void;
+}>('compUI', 'NoteFormsCatalogPage');
+const RemoteNotedDatasetPage = lazyProvider<{
+  apiBaseUrl?: string;
+  onNavigate?: (path: string) => void;
+}>('compUI', 'NoteDatasetPage');
+const RemoteFriendsHubPage = lazyProvider<{
+  apiBaseUrl?: string;
+  onNavigate?: (path: string) => void;
+}>('compUI', 'FriendsHubPage');
 const RemoteStandaloneQuestionnaire = lazyProvider<{ shareSlug?: string; apiBaseUrl?: string }>('compUI', 'StandaloneQuestionnaire');
 const RemoteStandaloneNotePage = lazyProvider<{ kdJudul?: string; apiBaseUrl?: string }>('compUI', 'StandaloneNotePage');
 
@@ -320,6 +334,57 @@ function PortalHeader({ brand }: { brand: string }) {
   );
 }
 
+const NOTED_WORKSPACE_ITEMS = [
+  { path: '/noted', label: 'Catatan Saya', description: 'Catatan & sub-tahapan', icon: Layers, end: true },
+  { path: '/noted/shared', label: 'Dibagikan ke Saya', description: 'Catatan dari rekan', icon: Users },
+  { path: '/noted/public', label: 'Katalog Publik', description: 'Catatan terbuka', icon: Globe },
+  { path: '/noted/documents', label: 'Dokumen', description: 'Berkas & bukti', icon: FolderOpen },
+  { path: '/noted/forms', label: 'Form Pendukung', description: 'Katalog formulir', icon: ClipboardList },
+  { path: '/noted/dataset', label: 'Dataset', description: 'Data respon form', icon: Database },
+  { path: '/noted/friends', label: 'Kelola Rekan', description: 'Relasi & kolaborasi', icon: UserPlus },
+];
+
+const NOTED_WORKSPACE_MENU: FeatureMenu = {
+  brand: 'Ruang Kerja Noted',
+  menus: [
+    {
+      section: 'Catatan',
+      items: [
+        { id: 'noted-root', label: 'Catatan Saya', path: '/noted', icon: 'layers', order: 10, end: true },
+        { id: 'noted-shared', label: 'Dibagikan ke Saya', path: '/noted/shared', icon: 'users', order: 20 },
+        { id: 'noted-public', label: 'Katalog Publik', path: '/noted/public', icon: 'globe', order: 30 },
+      ],
+    },
+    {
+      section: 'Workspace',
+      items: [
+        { id: 'noted-documents', label: 'Dokumen', path: '/noted/documents', icon: 'folder-open', order: 10 },
+        { id: 'noted-forms', label: 'Form Pendukung', path: '/noted/forms', icon: 'clipboard-list', order: 20 },
+        { id: 'noted-dataset', label: 'Dataset', path: '/noted/dataset', icon: 'database', order: 30 },
+        { id: 'noted-friends', label: 'Kelola Rekan', path: '/noted/friends', icon: 'user-plus', order: 40 },
+      ],
+    },
+  ],
+};
+
+function NotedWorkspaceLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-0">
+      <div className="relative hidden shrink-0 md:z-50 md:block md:sticky md:top-0 md:h-[calc(100vh-4.5rem)] md:w-[72px]">
+        <div className="absolute inset-y-0 left-0 z-40">
+          <DashSidebar menu={NOTED_WORKSPACE_MENU} hoverOpen onToggle={()=>{}}/>
+        </div>
+      </div>
+      <div className="min-w-0 flex-1 md:pl-4">
+        <div className="md:hidden mb-3">
+          <SubNav title="Ruang Kerja Noted" items={NOTED_WORKSPACE_ITEMS} />
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function NotedRouteHandler({
   effectiveMenu,
   brandName,
@@ -359,18 +424,21 @@ function NotedRouteHandler({
       {effectiveMenu ? (
         <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
           <ProviderBoundary name="compUI">
-            <div className="p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
-              <RemoteNotedView
-                apiBaseUrl="http://localhost:3002/api"
-                initialTab={activeTab}
-                activeTab={activeTab}
-                onNavigate={(path) => {
-                  if (path === '/shared') navigate('/noted/shared');
-                  else if (path === '/public') navigate('/noted/public');
-                  else if (path === '/' || path === '/my-notes') navigate('/noted');
-                  else navigate(path.startsWith('/noted') ? path : `/noted${path}`);
-                }}
-              />
+            <div className="py-4 min-h-[calc(100vh-4rem)]">
+              <NotedWorkspaceLayout>
+                <RemoteNotedView
+                  apiBaseUrl="http://localhost:3002/api"
+                  initialTab={activeTab}
+                  activeTab={activeTab}
+                  showInternalTabs={false}
+                  onNavigate={(path) => {
+                    if (path === '/shared') navigate('/noted/shared');
+                    else if (path === '/public') navigate('/noted/public');
+                    else if (path === '/' || path === '/my-notes') navigate('/noted');
+                    else navigate(path.startsWith('/noted') ? path : `/noted${path}`);
+                  }}
+                />
+              </NotedWorkspaceLayout>
             </div>
           </ProviderBoundary>
         </AppShell>
@@ -387,7 +455,7 @@ function NotedRouteHandler({
   );
 }
 
-type NotedWorkspaceKind = 'forms' | 'responses' | 'documents';
+type NotedWorkspaceKind = 'forms' | 'responses' | 'documents' | 'forms-catalog' | 'dataset' | 'friends';
 
 function NotedWorkspaceRoute({
   kind,
@@ -413,29 +481,37 @@ function NotedWorkspaceRoute({
       {effectiveMenu ? (
         <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
           <ProviderBoundary name="compUI">
-            <div className="p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
-              {kind === 'forms' && kdJudul ? (
-                <RemoteNotedFormsPage
-                  kdJudul={kdJudul}
-                  apiBaseUrl={apiBaseUrl}
-                  onNavigate={onNavigate}
-                />
-              ) : kind === 'responses' && kdJudul && formId ? (
-                <RemoteNotedFormResponsesPage
-                  kdJudul={kdJudul}
-                  formId={formId}
-                  apiBaseUrl={apiBaseUrl}
-                  onNavigate={onNavigate}
-                />
-              ) : kind === 'documents' ? (
-                <RemoteNotedDocumentsPage
-                  kdJudul={kdJudul}
-                  apiBaseUrl={apiBaseUrl}
-                  onNavigate={onNavigate}
-                />
-              ) : (
-                <div className="text-sm text-muted-foreground">Parameter route tidak lengkap.</div>
-              )}
+            <div className="py-4 min-h-[calc(100vh-4rem)]">
+              <NotedWorkspaceLayout>
+                {kind === 'forms' && kdJudul ? (
+                  <RemoteNotedFormsPage
+                    kdJudul={kdJudul}
+                    apiBaseUrl={apiBaseUrl}
+                    onNavigate={onNavigate}
+                  />
+                ) : kind === 'responses' && kdJudul && formId ? (
+                  <RemoteNotedFormResponsesPage
+                    kdJudul={kdJudul}
+                    formId={formId}
+                    apiBaseUrl={apiBaseUrl}
+                    onNavigate={onNavigate}
+                  />
+                ) : kind === 'documents' ? (
+                  <RemoteNotedDocumentsPage
+                    kdJudul={kdJudul}
+                    apiBaseUrl={apiBaseUrl}
+                    onNavigate={onNavigate}
+                  />
+                ) : kind === 'forms-catalog' ? (
+                  <RemoteNotedFormsCatalogPage apiBaseUrl={apiBaseUrl} onNavigate={onNavigate} />
+                ) : kind === 'dataset' ? (
+                  <RemoteNotedDatasetPage apiBaseUrl={apiBaseUrl} onNavigate={onNavigate} />
+                ) : kind === 'friends' ? (
+                  <RemoteFriendsHubPage apiBaseUrl={apiBaseUrl} onNavigate={onNavigate} />
+                ) : (
+                  <div className="text-sm text-muted-foreground">Parameter route tidak lengkap.</div>
+                )}
+              </NotedWorkspaceLayout>
             </div>
           </ProviderBoundary>
         </AppShell>
@@ -572,9 +648,9 @@ export function App() {
       <Route
         path="/compUI/*"
         element={
-          !isDevBypass ? (
-            <Navigate to="/noted" replace />
-          ) : (
+          // !isDevBypass ? (
+          //   <Navigate to="/noted" replace />
+          // ) : (
             <RouteGuard>
               {effectiveMenu ? (
                 <AppShell menu={effectiveMenu} header={<PortalHeader brand={brandName} />}>
@@ -592,7 +668,7 @@ export function App() {
                 </div>
               )}
             </RouteGuard>
-          )
+          // )
         }
       />
 
@@ -622,6 +698,10 @@ export function App() {
 
       {/* 5. Halaman Aplikasi Noted: Catatan Saya, Dibagikan ke Saya, dan Katalog Terbuka Publik */}
       <Route
+        path="/noted/forms"
+        element={<NotedWorkspaceRoute kind="forms-catalog" effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+      <Route
         path="/noted/forms/:kdJudul"
         element={<NotedWorkspaceRoute kind="forms" effectiveMenu={effectiveMenu} brandName={brandName} />}
       />
@@ -632,6 +712,14 @@ export function App() {
       <Route
         path="/noted/documents"
         element={<NotedWorkspaceRoute kind="documents" effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+      <Route
+        path="/noted/dataset"
+        element={<NotedWorkspaceRoute kind="dataset" effectiveMenu={effectiveMenu} brandName={brandName} />}
+      />
+      <Route
+        path="/noted/friends"
+        element={<NotedWorkspaceRoute kind="friends" effectiveMenu={effectiveMenu} brandName={brandName} />}
       />
       <Route
         path="/noted/shared"

@@ -980,22 +980,66 @@ export class NotesService {
 
   // 8b. Agregasi seluruh berkas bukti dukung lintas catatan (untuk halaman Dokumen)
   async getAllFiles(query: any, user: AuthenticatedUser) {
-    const memberId = user.kdMember;
     const page = Math.max(1, Number(query.page) || 1);
-    const limit = query.limit
-      ? Math.min(200, Math.max(1, Number(query.limit)))
-      : 25;
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 25));
+    const search = typeof query.search === 'string' ? query.search.trim().slice(0, 100) : '';
+    const category = typeof query.category === 'string' ? query.category.trim().toUpperCase() : '';
+    const fileType = typeof query.fileType === 'string' ? query.fileType.trim().toLowerCase() : '';
+    const kdJudul = typeof query.kdJudul === 'string' ? query.kdJudul.trim() : '';
+    const allowedCategories = new Set(['SOP', 'FOTO', 'BAST', 'INVOICE', 'OTHER', 'KAK', 'LAPORAN']);
+    const allowedFileTypes = new Set(['pdf', 'image', 'doc', 'link']);
+    const allowedSorts: Record<string, any> = {
+      newest: { createdAt: 'desc' },
+      oldest: { createdAt: 'asc' },
+      name_asc: { fileName: 'asc' },
+      name_desc: { fileName: 'desc' },
+      size_desc: { fileSizeBytes: 'desc' },
+      size_asc: { fileSizeBytes: 'asc' },
+    };
+    const orderBy = allowedSorts[String(query.sort || 'newest')] || allowedSorts.newest;
 
-    const where: any = { kdMember: memberId };
-    if (query.kdJudul) where.kdJudul = query.kdJudul;
-    if (query.category) where.category = query.category;
-    if (query.fileType) where.fileType = query.fileType;
-    if (query.search && String(query.search).trim()) {
-      const q = String(query.search).trim();
-      where.OR = [
-        { fileName: { contains: q } },
-        { keterangan: { contains: q } },
-        { kdJudul: { contains: q } },
+    const fromDate = typeof query.from === 'string' && query.from ? new Date(query.from) : null;
+    const toDate = typeof query.to === 'string' && query.to ? new Date(query.to) : null;
+
+    const accessibleNoteWhere: any = {
+      OR: [
+        { kdMember: user.kdMember },
+        { picId: user.id },
+        { collaborators: { some: { userId: user.id } } },
+        { sharingMode: 'PUBLIC' },
+        { publikasi: true },
+      ],
+    };
+    if (kdJudul) accessibleNoteWhere.kdJudul = kdJudul;
+
+    const accessibleNotes = await this.prisma.judulNote.findMany({
+      where: accessibleNoteWhere,
+      select: { kdJudul: true, kdMember: true },
+    });
+    const accessiblePairs = accessibleNotes.map((n) => ({ kdJudul: n.kdJudul, kdMember: n.kdMember }));
+
+    if (accessiblePairs.length === 0) {
+      return { success: true, data: [], count: 0, total: 0, page, limit };
+    }
+
+    const where: any = { OR: accessiblePairs };
+    if (category && allowedCategories.has(category)) where.category = category;
+    if (fileType && allowedFileTypes.has(fileType)) where.fileType = fileType;
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate && !isNaN(fromDate.getTime())) where.createdAt.gte = fromDate;
+      if (toDate && !isNaN(toDate.getTime())) where.createdAt.lte = toDate;
+    }
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { fileName: { contains: search } },
+            { keterangan: { contains: search } },
+            { kdJudul: { contains: search } },
+          ],
+        },
       ];
     }
 
@@ -1006,7 +1050,7 @@ export class NotesService {
         include: {
           note: { select: { judul: true, kdJudul: true, tingkat: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

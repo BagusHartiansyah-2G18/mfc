@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { NotesController } from './notes.controller';
 import { NotesService } from './notes.service';
-import { FlexibleFormsController, PublicFormsController } from './flexible-forms.controller';
+import { FlexibleFormsController, PublicFormsController, FormsCatalogController } from './flexible-forms.controller';
 import { FlexibleFormsService } from './flexible-forms.service';
 import { FriendsController } from './friends.controller';
 import { FriendsService } from './friends.service';
@@ -11,6 +11,7 @@ import { SharingService } from './sharing.service';
 @Module({
   controllers: [
     NotesController,
+    FormsCatalogController,
     FlexibleFormsController,
     PublicFormsController,
     FriendsController,

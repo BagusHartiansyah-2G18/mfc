@@ -7,6 +7,7 @@ export interface FeatureMenuItem {
   enabled?: boolean
   badge?: string
   role?: string
+  end?: boolean
 }
 
 export interface FeatureMenuSection {

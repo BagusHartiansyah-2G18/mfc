@@ -268,7 +268,7 @@ export interface FlatFormProjection {
   formId: string;
   formTitle: string;
   schemaVersion: number;
-  sharingMode: 'PUBLIC' | 'KHUSUS' | 'PRIVATE';
+  sharingMode: string;
   isLocked: boolean;
   shareSlug?: string | null;
   totalResponses: number;
@@ -277,6 +277,36 @@ export interface FlatFormProjection {
   total?: number;
   page?: number;
   limit?: number;
+  appliedFilters?: Record<string, any>;
+}
+
+export interface FormCatalogItem extends DataForm {
+  responseCount: number;
+  note?: Pick<JudulNote, 'kdJudul' | 'judul' | 'tingkat' | 'status' | 'stage'> | null;
+}
+
+export interface DatasetMetadataRow {
+  id: string;
+  formId: string;
+  formTitle: string;
+  kdJudul: string;
+  noteTitle?: string | null;
+  responderId?: string | null;
+  responderName?: string | null;
+  responderEmail?: string | null;
+  originHost?: string | null;
+  status: 'DRAFT' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
+  createdAt: string;
+  verifiedAt?: string | null;
+  verifiedBy?: string | null;
+}
+
+export interface DatasetResponse {
+  success: boolean;
+  data: DatasetMetadataRow[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface NoteBreadcrumb {

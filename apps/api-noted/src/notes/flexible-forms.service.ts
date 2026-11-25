@@ -12,6 +12,8 @@ import {
   SubmitFormValueDto,
   UpdateFormValueDto,
   QueryFormDto,
+  QueryFormCatalogDto,
+  QueryDatasetDto,
   UploadFormFileDto,
 } from './dto/flexible-form.dto';
 import { AuthenticatedUser } from '../auth/jwt-auth.guard';
@@ -41,29 +43,105 @@ const MIME_EXTENSION: Record<string, string> = {
 export class FlexibleFormsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private parsePagination(query: any, max = 100, def = 25) {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.min(max, Math.max(1, Number(query?.limit) || def));
+    return { page, limit, skip: (page - 1) * limit };
+  }
+
+  private parseDate(value: any): Date | null {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  private normalizeSearch(value: any, max = 120) {
+    return typeof value === 'string' ? value.trim().slice(0, max) : '';
+  }
+
+  private canViewForm(form: any, user?: AuthenticatedUser | null) {
+    if (!form) return false;
+    if (user?.role === 'Super Administrator' || user?.role === 'Administrator') return true;
+    if (user && form.kdMember === user.kdMember) return true;
+    if (form.sharingMode === 'PUBLIC') return true;
+    if (form.sharingMode === 'KHUSUS' && user) {
+      return (form.accessRules || []).some((r: any) => r.friendUserId === user.id || r.friendEmail === user.email);
+    }
+    return false;
+  }
+
+  private canViewFormResponses(form: any, user?: AuthenticatedUser | null) {
+    if (!form) return false;
+    if (user?.role === 'Super Administrator' || user?.role === 'Administrator') return true;
+    if (user && form.kdMember === user.kdMember) return true;
+    if (form.sharingMode === 'PUBLIC') return true;
+    if (form.sharingMode === 'KHUSUS' && user) {
+      return (form.accessRules || []).some(
+        (r: any) => (r.friendUserId === user.id || r.friendEmail === user.email) && r.canViewAllResponses
+      );
+    }
+    return false;
+  }
+
   // 1. Ambil seluruh form kustom milik catatan
   async getForms(
     kdJudul: string,
     user: AuthenticatedUser,
     query: QueryFormDto = {}
   ) {
-    const note = await this.prisma.judulNote.findFirst({
-      where: { kdJudul },
-    });
+    const note = await this.prisma.judulNote.findFirst({ where: { kdJudul } });
     if (!note) {
       throw new NotFoundException(`Catatan #${kdJudul} tidak ditemukan.`);
     }
 
-    const forms = await this.prisma.dataForm.findMany({
-      where: { kdNote: kdJudul },
-      include: {
-        accessRules: true,
-        _count: {
-          select: { values: true },
+    const { page, limit, skip } = this.parsePagination(query, 100, 25);
+    const search = this.normalizeSearch(query.search, 100);
+    const sharingMode = ['PUBLIC', 'KHUSUS', 'PRIVATE'].includes(String(query.sharingMode))
+      ? String(query.sharingMode)
+      : '';
+    const isLocked =
+      typeof query.isLocked === 'string'
+        ? query.isLocked === 'true'
+          ? true
+          : query.isLocked === 'false'
+          ? false
+          : undefined
+        : typeof query.isLocked === 'boolean'
+        ? query.isLocked
+        : undefined;
+    const orderBy: any =
+      query.sort === 'oldest'
+        ? { createdAt: 'asc' }
+        : query.sort === 'title_asc'
+        ? { tujuan: 'asc' }
+        : query.sort === 'title_desc'
+        ? { tujuan: 'desc' }
+        : { createdAt: 'desc' };
+
+    const where: any = { kdNote: kdJudul };
+    if (sharingMode) where.sharingMode = sharingMode;
+    if (isLocked !== undefined) where.isLocked = isLocked;
+    if (search) {
+      where.OR = [
+        { tujuan: { contains: search } },
+        { keterangan: { contains: search } },
+        { id: { contains: search } },
+      ];
+    }
+
+    const [total, forms] = await Promise.all([
+      this.prisma.dataForm.count({ where }),
+      this.prisma.dataForm.findMany({
+        where,
+        include: {
+          accessRules: true,
+          _count: { select: { values: true } },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy,
+        skip,
+        take: limit,
+      }),
+    ]);
 
     return {
       success: true,
@@ -86,11 +164,254 @@ export class FlexibleFormsService {
         sharingMode: note.sharingMode,
         createdAt: note.createdAt,
       },
-      data: forms.map((f) => ({
+      data: forms.map((f) => ({ ...f, responseCount: f._count.values })),
+      count: forms.length,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getFormsCatalog(user: AuthenticatedUser, query: QueryFormCatalogDto = {}) {
+    const { page, limit, skip } = this.parsePagination(query, 100, 25);
+    const search = this.normalizeSearch(query.search, 100);
+    const kdJudul = typeof query.kdJudul === 'string' ? query.kdJudul.trim() : '';
+    const sharingMode = ['PUBLIC', 'KHUSUS', 'PRIVATE'].includes(String(query.sharingMode))
+      ? String(query.sharingMode)
+      : '';
+    const isLocked =
+      typeof query.isLocked === 'string'
+        ? query.isLocked === 'true'
+          ? true
+          : query.isLocked === 'false'
+          ? false
+          : undefined
+        : typeof query.isLocked === 'boolean'
+        ? query.isLocked
+        : undefined;
+    const fromDate = this.parseDate(query.from);
+    const toDate = this.parseDate(query.to);
+    const orderBy: any =
+      query.sort === 'oldest'
+        ? { createdAt: 'asc' }
+        : query.sort === 'title_asc'
+        ? { tujuan: 'asc' }
+        : query.sort === 'title_desc'
+        ? { tujuan: 'desc' }
+        : query.sort === 'responses_desc'
+        ? { values: { _count: 'desc' } }
+        : { createdAt: 'desc' };
+
+    const accessOr: any[] = [
+      { kdMember: user.kdMember },
+      { sharingMode: 'PUBLIC' },
+      { accessRules: { some: { friendUserId: user.id } } },
+      { accessRules: { some: { friendEmail: user.email } } },
+    ];
+
+    const where: any = { OR: accessOr };
+    if (kdJudul) where.kdNote = kdJudul;
+    if (sharingMode) where.sharingMode = sharingMode;
+    if (isLocked !== undefined) where.isLocked = isLocked;
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) where.createdAt.gte = fromDate;
+      if (toDate) where.createdAt.lte = toDate;
+    }
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { tujuan: { contains: search } },
+            { keterangan: { contains: search } },
+            { kdNote: { contains: search } },
+            { id: { contains: search } },
+          ],
+        },
+      ];
+    }
+
+    const [total, forms] = await Promise.all([
+      this.prisma.dataForm.count({ where }),
+      this.prisma.dataForm.findMany({
+        where,
+        include: {
+          accessRules: true,
+          _count: { select: { values: true } },
+        },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const noteIds = Array.from(new Set(forms.map((f) => f.kdNote)));
+    const notes = noteIds.length
+      ? await this.prisma.judulNote.findMany({
+          where: { kdJudul: { in: noteIds } },
+          select: { kdJudul: true, judul: true, tingkat: true, status: true, stage: true, kdMember: true },
+        })
+      : [];
+    const noteMap = new Map(notes.map((n) => [n.kdJudul, n]));
+
+    const data = forms
+      .filter((f) => this.canViewForm(f, user))
+      .map((f) => ({
         ...f,
         responseCount: f._count.values,
-      })),
-      count: forms.length,
+        note: noteMap.get(f.kdNote) || null,
+      }));
+
+    return { success: true, data, count: data.length, total, page, limit };
+  }
+
+  async getDatasetMetadata(user: AuthenticatedUser, query: QueryDatasetDto = {}) {
+    const { page, limit, skip } = this.parsePagination(query, 100, 25);
+    const search = this.normalizeSearch(query.search, 100);
+    const formId = typeof query.formId === 'string' ? query.formId.trim() : '';
+    const kdJudul = typeof query.kdJudul === 'string' ? query.kdJudul.trim() : '';
+    const status = ['DRAFT', 'SUBMITTED', 'VERIFIED', 'REJECTED'].includes(String(query.status))
+      ? String(query.status)
+      : '';
+    const fromDate = this.parseDate(query.from);
+    const toDate = this.parseDate(query.to);
+    const orderBy: any =
+      query.sort === 'oldest' ? { createdAt: 'asc' } : query.sort === 'status' ? { status: 'asc' } : { createdAt: 'desc' };
+
+    const accessibleForms = await this.prisma.dataForm.findMany({
+      where: {
+        ...(formId ? { id: formId } : {}),
+        ...(kdJudul ? { kdNote: kdJudul } : {}),
+        OR: [
+          { kdMember: user.kdMember },
+          { sharingMode: 'PUBLIC' },
+          { accessRules: { some: { friendUserId: user.id } } },
+          { accessRules: { some: { friendEmail: user.email } } },
+        ],
+      },
+      include: { accessRules: true },
+    });
+    const allowedForms = accessibleForms.filter((f) => this.canViewFormResponses(f, user));
+    const formIds = allowedForms.map((f) => f.id);
+
+    if (formIds.length === 0) {
+      return { success: true, data: [], count: 0, total: 0, page, limit, columns: [], selectedForm: null };
+    }
+
+    const where: any = { formId: { in: formIds } };
+    if (status) where.status = status;
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) where.createdAt.gte = fromDate;
+      if (toDate) where.createdAt.lte = toDate;
+    }
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { responderName: { contains: search } },
+            { responderEmail: { contains: search } },
+            { originHost: { contains: search } },
+            { id: { contains: search } },
+            { form: { tujuan: { contains: search } } },
+            { form: { kdNote: { contains: search } } },
+          ],
+        },
+      ];
+    }
+
+    const selectedForm = formId ? allowedForms.find((f) => f.id === formId) || null : null;
+    const selectedFields = selectedForm && Array.isArray(selectedForm.fields) ? (selectedForm.fields as any[]) : [];
+    const dynamicColumns = selectedForm
+      ? selectedFields
+          .filter((f) => f && typeof f.key === 'string' && /^[a-zA-Z0-9_]+$/.test(f.key))
+          .slice(0, 40)
+          .map((f) => ({ key: f.key, label: f.label || f.key, type: f.type || 'text' }))
+      : [];
+
+    const [total, values] = await Promise.all([
+      this.prisma.valueForm.count({ where }),
+      this.prisma.valueForm.findMany({
+        where,
+        include: { form: { select: { id: true, tujuan: true, kdNote: true, fields: true } } },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const noteIds = Array.from(new Set(values.map((v) => v.form.kdNote)));
+    const notes = noteIds.length
+      ? await this.prisma.judulNote.findMany({
+          where: { kdJudul: { in: noteIds } },
+          select: { kdJudul: true, judul: true },
+        })
+      : [];
+    const noteMap = new Map(notes.map((n) => [n.kdJudul, n.judul]));
+
+    const sanitizeAnswer = (val: any): any => {
+      if (val === null || val === undefined) return null;
+      if (typeof val === 'string') return val.length > 500 ? `${val.slice(0, 500)}…` : val;
+      if (typeof val === 'number' || typeof val === 'boolean') return val;
+      if (Array.isArray(val)) return val.slice(0, 20).map(sanitizeAnswer);
+      if (typeof val === 'object') {
+        if (val.fileUrl || val.url) {
+          return {
+            __type: 'file',
+            fileName: val.fileName || val.name || 'Lampiran',
+            fileUrl: val.fileUrl || val.url,
+            mimeType: val.mimeType || null,
+          };
+        }
+        if (val.signature || typeof val.dataUrl === 'string') {
+          return { __type: 'signature', signed: true };
+        }
+        const out: Record<string, any> = {};
+        for (const [k, v] of Object.entries(val).slice(0, 20)) out[k] = sanitizeAnswer(v);
+        return out;
+      }
+      return String(val);
+    };
+
+    return {
+      success: true,
+      columns: dynamicColumns,
+      selectedForm: selectedForm
+        ? { id: selectedForm.id, tujuan: selectedForm.tujuan, kdNote: selectedForm.kdNote, sharingMode: selectedForm.sharingMode }
+        : null,
+      data: values.map((v) => {
+        const answersObj = ((v.answers as any)?.answers || v.answers || {}) as Record<string, any>;
+        const dynamicAnswers: Record<string, any> = {};
+        if (selectedForm) {
+          for (const col of dynamicColumns) dynamicAnswers[col.key] = sanitizeAnswer(answersObj[col.key]);
+        } else {
+          for (const [k, val] of Object.entries(answersObj).slice(0, 8)) {
+            if (/^[a-zA-Z0-9_]+$/.test(k)) dynamicAnswers[k] = sanitizeAnswer(val);
+          }
+        }
+        return {
+          id: v.id,
+          formId: v.formId,
+          formTitle: v.form.tujuan,
+          kdJudul: v.form.kdNote,
+          noteTitle: noteMap.get(v.form.kdNote) || null,
+          responderId: v.responderId,
+          responderName: v.responderName,
+          responderEmail: v.responderEmail,
+          originHost: v.originHost,
+          status: v.status,
+          createdAt: v.createdAt,
+          verifiedAt: v.verifiedAt,
+          verifiedBy: v.verifiedBy,
+          answers: dynamicAnswers,
+        };
+      }),
+      count: values.length,
+      total,
+      page,
+      limit,
     };
   }
 
@@ -340,53 +661,54 @@ export class FlexibleFormsService {
       throw new NotFoundException(`Formulir tidak ditemukan.`);
     }
 
-    // Evaluasi izin jika mode KHUSUS atau PRIVATE
-    if (form.sharingMode === 'PRIVATE') {
-      if (!user || (user.kdMember !== form.kdMember && user.role !== 'Super Administrator')) {
-        throw new ForbiddenException('Akses ditolak: Formulir bersifat pribadi.');
-      }
-    } else if (form.sharingMode === 'KHUSUS') {
-      if (!user) {
-        throw new ForbiddenException('Akses ditolak: Memerlukan login anggota.');
-      }
-      const isOwner = user.kdMember === form.kdMember || user.role === 'Super Administrator';
-      const hasRule = form.accessRules.find(
-        (r) => r.friendUserId === user.id && r.canViewAllResponses
+    const isOwner = Boolean(user && (user.kdMember === form.kdMember || user.role === 'Super Administrator'));
+    if (form.sharingMode === 'PRIVATE' && !isOwner) {
+      throw new ForbiddenException('Akses ditolak: Formulir bersifat pribadi.');
+    }
+    if (form.sharingMode === 'KHUSUS') {
+      if (!user) throw new ForbiddenException('Akses ditolak: Memerlukan login anggota.');
+      const hasRule = (form.accessRules || []).some(
+        (r) => (r.friendUserId === user.id || r.friendEmail === user.email) && r.canViewAllResponses
       );
       if (!isOwner && !hasRule) {
         throw new ForbiddenException('Akses ditolak: Anda tidak memiliki izin melihat respon form ini.');
       }
     }
 
-    // Ambil data respon
+    const { page, limit, skip } = this.parsePagination(query, 100, 25);
+    const search = this.normalizeSearch(query.search, 100);
+    const status = ['DRAFT', 'SUBMITTED', 'VERIFIED', 'REJECTED'].includes(String(query.status))
+      ? String(query.status)
+      : '';
+    const fromDate = this.parseDate(query.from);
+    const toDate = this.parseDate(query.to);
+    const orderBy: any =
+      query.sort === 'oldest' ? { createdAt: 'asc' } : query.sort === 'status' ? { status: 'asc' } : { createdAt: 'desc' };
+
     const whereValues: any = { formId };
-    if (query.status) {
-      whereValues.status = query.status;
+    if (status) whereValues.status = status;
+    if (fromDate || toDate) {
+      whereValues.createdAt = {};
+      if (fromDate) whereValues.createdAt.gte = fromDate;
+      if (toDate) whereValues.createdAt.lte = toDate;
     }
 
     const valueRecords = await this.prisma.valueForm.findMany({
       where: whereValues,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
     });
 
     const fields = (form.fields as any[]) || [];
-
-    // Buat definisi kolom rata
     const columns = [
       { key: 'responderName', label: 'Nama Responden', type: 'string' },
       { key: 'responderEmail', label: 'Email', type: 'string' },
       { key: 'originHost', label: 'Host Asal', type: 'string' },
       { key: 'status', label: 'Status', type: 'badge' },
       { key: 'createdAt', label: 'Waktu Kirim', type: 'datetime' },
-      ...fields.map((f) => ({
-        key: f.key,
-        label: f.label,
-        type: f.type,
-      })),
+      ...fields.map((f) => ({ key: f.key, label: f.label, type: f.type })),
     ];
 
-    // Buat baris data rata
-    const rows = valueRecords.map((vr) => {
+    let rows = valueRecords.map((vr) => {
       const answersObj = (vr.answers as any)?.answers || vr.answers || {};
       return {
         id: vr.id,
@@ -403,18 +725,17 @@ export class FlexibleFormsService {
       };
     });
 
-    // Filter pencarian teks jika search query disertakan
-    let filteredRows = rows;
-    if (query.search && typeof query.search === 'string') {
-      const s = query.search.toLowerCase();
-      filteredRows = rows.filter((r) =>
+    if (search) {
+      const s = search.toLowerCase();
+      rows = rows.filter((r) =>
         Object.values(r).some((val) =>
-          typeof val === 'string' || typeof val === 'number'
-            ? String(val).toLowerCase().includes(s)
-            : false
+          typeof val === 'string' || typeof val === 'number' ? String(val).toLowerCase().includes(s) : false
         )
       );
     }
+
+    const total = rows.length;
+    const pagedRows = rows.slice(skip, skip + limit);
 
     return {
       success: true,
@@ -424,9 +745,12 @@ export class FlexibleFormsService {
       sharingMode: form.sharingMode,
       isLocked: form.isLocked,
       shareSlug: form.shareSlug,
-      totalResponses: filteredRows.length,
+      totalResponses: total,
+      total,
+      page,
+      limit,
       columns,
-      rows: filteredRows,
+      rows: pagedRows,
     };
   }
 
@@ -594,9 +918,10 @@ export class FlexibleFormsService {
     kdJudul: string,
     formId: string,
     format: string,
-    user?: AuthenticatedUser
+    user?: AuthenticatedUser,
+    query: any = {}
   ) {
-    const flatData = await this.getFormDataFlat(kdJudul, formId, {}, user);
+    const flatData = await this.getFormDataFlat(kdJudul, formId, { ...query, page: 1, limit: 100 }, user);
 
     if (format === 'csv') {
       const cols = flatData.columns;

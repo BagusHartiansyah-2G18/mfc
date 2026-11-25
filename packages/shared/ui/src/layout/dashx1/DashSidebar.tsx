@@ -323,6 +323,7 @@ export const DashSidebar = React.forwardRef<HTMLElement, DashSidebarProps>(
                           <DashSidebarItem
                             key={item.id}
                             to={item.path}
+                            end={item.end}
                             label={item.label}
                             badge={item.badge}
                             role={item.role}
