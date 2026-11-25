@@ -71,7 +71,7 @@ export function FriendsHubPage({ apiBaseUrl = 'http://localhost:3002/api' }: Fri
   });
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-lg font-bold text-foreground flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Kelola Rekan (Friends Hub)</h1>
