@@ -34,6 +34,7 @@ import { Button, cn } from '@org/ui';
 import { authFetch } from '@org/auth';
 import { type JudulNote, type JudulChecklist, type NoteBreadcrumb } from './types';
 import { NoteStatusBadge, NoteStageBadge, NotePriorityBadge } from './NoteStatusBadge';
+import { NoteCard } from './NoteCard';
 
 interface NoteReaderModalProps {
   isOpen: boolean;
@@ -1320,117 +1321,19 @@ export function NoteReaderModal({
                   <RefreshCw className="h-5 w-5 animate-spin mx-auto text-primary" />
                   <p>Memuat daftar turunan tingkat {activeNote.tingkat + 1}...</p>
                 </div>
-              ) : childNotes.length > 0 ? (
+) : childNotes.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {childNotes.map((child) => (
-                    <div
-                      key={child.id || child.kdJudul}
-                      className="group relative rounded-xl border border-border/70 bg-muted/20 hover:bg-card hover:border-primary/50 transition-all p-4 space-y-3 flex flex-col justify-between shadow-xs"
-                    >
-                      <div className="space-y-2">
-                        {/* Badges Bar */}
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[11px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                              #{child.kdJudul}
-                            </span>
-                            <NoteStageBadge stage={child.stage} />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <NotePriorityBadge priority={child.priority} />
-                            <NoteStatusBadge status={child.status} />
-                          </div>
-                        </div>
-
-                        {/* Title & Summary */}
-                        <div>
-                          <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
-                            {child.judul}
-                          </h4>
-                          {child.ringkasan && (
-                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
-                              {child.ringkasan}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="space-y-1 pt-1">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-muted-foreground font-medium">Progres:</span>
-                            <span className="font-mono font-bold text-primary">{child.progress}%</span>
-                          </div>
-                          <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="bg-primary h-full rounded-full transition-all duration-300"
-                              style={{ width: `${child.progress}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Metadata row */}
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 flex-wrap gap-2 border-t border-border/50">
-                          <div className="flex items-center gap-1">
-                            <User className="h-3 w-3 text-primary" />
-                            <span className="truncate max-w-[120px]">{child.picName || 'PIC'}</span>
-                          </div>
-
-                          {child.checklists && child.checklists.length > 0 && (
-                            <span className="flex items-center gap-1 font-mono text-[10px]">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                              {child.checklists.filter((c) => c.isCompleted).length}/{child.checklists.length} Tugas
-                            </span>
-                          )}
-
-                          {child.targetBudget && Number(child.targetBudget) > 0 && (
-                            <span className="font-mono text-[10px] font-bold text-foreground">
-                              Rp {Number(child.targetBudget).toLocaleString('id-ID')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="pt-2 flex items-center justify-between gap-2 border-t border-border/40">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleDrillDown(child)}
-                          className="h-8 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer flex-1 shadow-xs"
-                        >
-                          <BookOpen className="h-3.5 w-3.5" />
-                          <span>Buka & Baca Tingkat Ini</span>
-                          <ChevronRight className="h-3.5 w-3.5 ml-auto" />
-                        </Button>
-
-                        {onSwitchToEdit && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              onClose();
-                              onSwitchToEdit(child);
-                            }}
-                            className="h-8 text-xs px-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
-                            title="Edit Data Catatan Ini"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-
-                        {onOpenSupportingDrawer && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onOpenSupportingDrawer(child)}
-                            className="h-8 text-xs px-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
-                            title="Buka Form Pendukung untuk Sub-Catatan Ini"
-                          >
-                            <SlidersHorizontal className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+                  {childNotes.map((ch) => (
+                    <NoteCard
+                      key={ch.id || ch.kdJudul}
+                      note={ch}
+                      onEdit={(note: JudulNote) => onSwitchToEdit ? onSwitchToEdit(note) : handleDrillDown(note)}
+                      onDelete={() => {}}
+                      onEnterSub={(note: JudulNote) => handleDrillDown(note)}
+                      onView={(note: JudulNote) => handleDrillDown(note)}
+                      onOpenSupportingDrawer={onOpenSupportingDrawer}
+                      onManageMedia={onManageMedia}
+                    />
                   ))}
                 </div>
               ) : (

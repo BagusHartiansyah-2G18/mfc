@@ -83,55 +83,162 @@ export function NoteCard({
       {/* Status accent strip */}
       <div className={`h-1 w-full rounded-t-2xl bg-gradient-to-r ${STATUS_ACCENT[note.status]} to-transparent`} />
 
-      <div className="flex flex-1 items-stretch gap-3 p-4 sm:p-5">
+      <div className="flex flex-1 items-stretch gap-3  p-4">
         {/* Main content */}
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="space-y-3">
             {/* Top Badges: Level + Sharing + AI */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                Level {note.tingkat}
-              </span>
-              {note.sharingMode === 'PUBLIC' && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
-                  <Globe className="h-2.5 w-2.5" /> Publik
+              <div>
+                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  L {note.tingkat}
                 </span>
-              )}
-              {note.sharingMode === 'KHUSUS' && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center gap-1">
-                  <Users className="h-2.5 w-2.5" /> Khusus
-                </span>
-              )}
-              {note.isAiGenerated && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20 flex items-center gap-1">
-                  <Sparkles className="h-2.5 w-2.5" /> AI
-                </span>
-              )}
+                {note.sharingMode === 'PUBLIC' && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                    <Globe className="h-2.5 w-2.5" /> Publik
+                  </span>
+                )}
+                {note.sharingMode === 'KHUSUS' && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 flex items-center gap-1">
+                    <Users className="h-2.5 w-2.5" /> Khusus
+                  </span>
+                )}
+                {note.isAiGenerated && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20 flex items-center gap-1">
+                    <Sparkles className="h-2.5 w-2.5" /> AI
+                  </span>
+                )}
 
-              {(collaboratorCount > 0 || note.picName) && (
-                <span className="mx-0.5 h-3 w-px bg-border/70" />
-              )}
+                {(collaboratorCount > 0 || note.picName) && (
+                  <span className="mx-0.5 h-3 w-px bg-border/70" />
+                )}
 
-              {collaboratorCount > 0 && (
-                <span
-                  className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"
-                  title={`${collaboratorCount} anggota tim`}
+                {collaboratorCount > 1 && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground"
+                    title={`${collaboratorCount} anggota tim`}
+                  >
+                    <Users className="h-3 w-3 shrink-0 text-primary" />
+                    <span className="font-bold text-foreground">{collaboratorCount}</span> 
+                  </span>
+                )} 
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-row justify-end ml-auto">
+                
+                <div
+                  className="relative flex shrink-0 flex-col items-center self-start pl-2"
+                  onMouseEnter={() => setActionsOpen(true)}
+                  onMouseLeave={() => setActionsOpen(false)}
                 >
-                  <Users className="h-3 w-3 shrink-0 text-primary" />
-                  <span className="font-bold text-foreground">{collaboratorCount}</span>
-                  <span>anggota</span>
-                </span>
-              )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setActionsOpen((v) => !v)}
+                    aria-haspopup="menu"
+                    aria-expanded={actionsOpen}
+                    className={`h-8 w-8 cursor-pointer ${actionsOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                    title="Aksi lainnya"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
 
-              {note.picName && (
-                <span
-                  className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-muted-foreground"
-                  title={`PIC: ${note.picName}`}
-                >
-                  <User className="h-3 w-3 shrink-0 text-indigo-500" />
-                  <span className="truncate max-w-[150px]">{note.picName}</span>
-                </span>
-              )}
+                  <div
+                    role="menu"
+                    className={`absolute right-full top-0 z-40 w-56 origin-top-right rounded-xl border border-border bg-popover p-1 shadow-xl transition-all duration-150 ${
+                      actionsOpen
+                        ? 'visible translate-x-0 opacity-100 pointer-events-auto'
+                        : 'invisible translate-x-1 opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      Aksi Catatan
+                    </div>
+
+                    {onOpenSupportingDrawer && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          onOpenSupportingDrawer(note);
+                          setActionsOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
+                      >
+                        <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                        <span className="flex-1">Form Pendukung</span>
+                        {supportingCount > 0 && (
+                          <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">{supportingCount}</span>
+                        )}
+                      </button>
+                    )}
+
+                    {onManageMedia && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          onManageMedia(note);
+                          setActionsOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
+                      >
+                        <Upload className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span className="flex-1">Form Upload</span>
+                        {fileCount > 0 && (
+                          <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{fileCount}</span>
+                        )}
+                      </button>
+                    )}
+
+                    {onManageMembers && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          onManageMembers(note);
+                          setActionsOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
+                      >
+                        <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="flex-1">Kelola Tim</span>
+                        {collaboratorCount > 0 && (
+                          <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{collaboratorCount}</span>
+                        )}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        onEdit(note);
+                        setActionsOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
+                    >
+                      <Edit3 className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                      <span className="flex-1">Edit Catatan</span>
+                    </button>
+
+                    <div className="my-1 h-px bg-border" />
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        onDelete(note);
+                        setActionsOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-500/10 cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="flex-1">Hapus Catatan</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Title & Summary */}
@@ -153,7 +260,40 @@ export function NoteCard({
                 {note.ringkasan || 'Tidak ada ringkasan keterangan.'}
               </p>
             </div>
-
+            <div className="flex justify-between space-y-1">
+              {note.picName && (
+                <span
+                  className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-muted-foreground"
+                  title={`PIC: ${note.picName}`}
+                >
+                  <User className="h-3 w-3 shrink-0 text-indigo-500" />
+                  <span className="truncate max-w-[150px]">{note.picName}</span>
+                </span>
+              )}
+              <div className="flex items-center gap-1.5 flex-row justify-end ml-auto">
+                {onView && (
+                  <Button
+                    variant="outline"
+                    onClick={() => onView(note)}
+                    className="flex text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+                    title="Mode Baca: Buka lembar dokumen & baca rinci"
+                  >
+                    <span>Read</span>
+                    <Eye className="h-3.5 w-3.5" /> 
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => onEnterSub(note)}
+                  className="flex text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+                  title="Buka Hirarki Sub-Catatan Turunan"
+                >
+                  <span>Turunan</span>
+                  <ArrowRightCircle className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+           
             {/* Progress Bar (conditional) */}
             {!hideProgress && (
               <div className="space-y-1">
@@ -224,144 +364,11 @@ export function NoteCard({
 
           <div className="flex-1" />
 
-          {/* Primary actions */}
-          <div className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3">
-            {onView && (
-              <Button
-                onClick={() => onView(note)}
-                className="flex-1 h-8 text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
-                title="Mode Baca: Buka lembar dokumen & baca rinci"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                <span>Buka</span>
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={() => onEnterSub(note)}
-              className="flex-1 h-8 px-2.5 text-xs font-semibold gap-1 border-border/80 hover:bg-muted/60 cursor-pointer"
-              title="Buka Hirarki Sub-Catatan Turunan"
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>Turunan</span>
-              <ArrowRightCircle className="h-3.5 w-3.5 opacity-70" />
-            </Button>
-          </div>
+          {/* Primary actions */} 
         </div>
 
         {/* More actions: single trigger, flyout on hover/click */}
-        <div
-          className="relative flex shrink-0 flex-col items-center self-start pl-2"
-          onMouseEnter={() => setActionsOpen(true)}
-          onMouseLeave={() => setActionsOpen(false)}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setActionsOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={actionsOpen}
-            className={`h-8 w-8 cursor-pointer ${actionsOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-            title="Aksi lainnya"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-
-          <div
-            role="menu"
-            className={`absolute right-full top-0 z-40 w-56 origin-top-right rounded-xl border border-border bg-popover p-1 shadow-xl transition-all duration-150 ${
-              actionsOpen
-                ? 'visible translate-x-0 opacity-100 pointer-events-auto'
-                : 'invisible translate-x-1 opacity-0 pointer-events-none'
-            }`}
-          >
-            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-              Aksi Catatan
-            </div>
-
-            {onOpenSupportingDrawer && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onOpenSupportingDrawer(note);
-                  setActionsOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
-                <span className="flex-1">Form Pendukung</span>
-                {supportingCount > 0 && (
-                  <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">{supportingCount}</span>
-                )}
-              </button>
-            )}
-
-            {onManageMedia && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onManageMedia(note);
-                  setActionsOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
-              >
-                <Upload className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <span className="flex-1">Form Upload</span>
-                {fileCount > 0 && (
-                  <span className="rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white">{fileCount}</span>
-                )}
-              </button>
-            )}
-
-            {onManageMembers && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onManageMembers(note);
-                  setActionsOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
-              >
-                <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
-                <span className="flex-1">Kelola Tim</span>
-                {collaboratorCount > 0 && (
-                  <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{collaboratorCount}</span>
-                )}
-              </button>
-            )}
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onEdit(note);
-                setActionsOpen(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted cursor-pointer"
-            >
-              <Edit3 className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-              <span className="flex-1">Edit Catatan</span>
-            </button>
-
-            <div className="my-1 h-px bg-border" />
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onDelete(note);
-                setActionsOpen(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-500/10 cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5 shrink-0" />
-              <span className="flex-1">Hapus Catatan</span>
-            </button>
-          </div>
-        </div>
+        
       </div>
     </div>
   );
