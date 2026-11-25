@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -21,6 +22,11 @@ export class FriendsController {
   @Get()
   async getFriends(@Req() req: RequestWithUser) {
     return await this.friendsService.getFriends(req.user!);
+  }
+
+  @Get('lookup')
+  async lookupUsers(@Req() req: RequestWithUser, @Query('q') q?: string) {
+    return await this.friendsService.lookupUsers(req.user!, q || '');
   }
 
   @Post('invite')

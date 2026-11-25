@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,20 +6,17 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
-  Input,
 } from '@org/ui';
 import {
   Users,
-  UserPlus,
   Trash2,
   CheckCircle2,
   AlertCircle,
-  Mail,
-  UserCheck,
   RotateCcw,
 } from 'lucide-react';
 import { type UserFriend } from '../types';
 import { authFetch } from '@org/auth';
+import { FriendInviteForm } from './FriendInviteForm';
 
 interface FriendsManagerModalProps {
   isOpen: boolean;
@@ -32,13 +29,9 @@ export function FriendsManagerModal({
   isOpen,
   onClose,
   apiBaseUrl = 'http://localhost:3002/api',
-  authToken = 'dev-bypass-token-2026',
 }: FriendsManagerModalProps) {
   const [friends, setFriends] = useState<UserFriend[]>([]);
-  const [friendEmail, setFriendEmail] = useState('');
-  const [friendName, setFriendName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -61,48 +54,10 @@ export function FriendsManagerModal({
   useEffect(() => {
     if (isOpen) {
       fetchFriends();
-      setFriendEmail('');
-      setFriendName('');
       setError(null);
       setSuccess(null);
     }
   }, [isOpen, fetchFriends]);
-
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!friendEmail.trim()) {
-      setError('Alamat email rekan wajib diisi.');
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setError(null);
-      setSuccess(null);
-
-      const res = await authFetch(`${apiBaseUrl}/friends/invite`, {
-        method: 'POST',
-        body: JSON.stringify({
-          friendEmail: friendEmail.trim(),
-          friendName: friendName.trim() || undefined,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || 'Gagal menambahkan rekan.');
-      }
-
-      setSuccess('Rekan berhasil ditambahkan ke daftar pertemanan.');
-      setFriendEmail('');
-      setFriendName('');
-      fetchFriends();
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan sistem.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleRemoveFriend = async (id: string) => {
     if (!window.confirm('Hapus rekan ini dari daftar pertemanan Anda?')) return;
@@ -156,53 +111,19 @@ export function FriendsManagerModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
           {/* Add Friend Form */}
-          <form onSubmit={handleInvite} className="p-4 rounded-xl border border-border/80 bg-card space-y-3">
-            <h4 className="font-bold text-xs text-foreground flex items-center gap-1.5">
-              <UserPlus className="h-4 w-4 text-primary" />
-              <span>Tambah / Undang Rekan Baru</span>
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-foreground">
-                  Alamat Email Rekan <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    value={friendEmail}
-                    onChange={(e) => setFriendEmail(e.target.value)}
-                    placeholder="nama@bgs-software.id"
-                    className="pl-8 h-8 text-xs bg-card"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-foreground">Nama Rekan (Opsional)</label>
-                <Input
-                  value={friendName}
-                  onChange={(e) => setFriendName(e.target.value)}
-                  placeholder="Contoh: Budi Santoso"
-                  className="h-8 text-xs bg-card"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <Button
-                type="submit"
-                variant="default"
-                size="sm"
-                disabled={isSubmitting}
-                className="h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
-              >
-                <UserCheck className="h-3.5 w-3.5" />
-                <span>{isSubmitting ? 'Menambahkan...' : 'Hubungkan Rekan'}</span>
-              </Button>
-            </div>
-          </form>
+          <FriendInviteForm
+            apiBaseUrl={apiBaseUrl}
+            existingFriendEmails={friends.map((f) => f.friendEmail)}
+            onSuccess={(msg) => {
+              setSuccess(msg);
+              setError(null);
+              fetchFriends();
+            }}
+            onError={(msg) => {
+              setError(msg);
+              if (msg) setSuccess(null);
+            }}
+          />
 
           {/* Connected Friends List */}
           <div className="space-y-3">

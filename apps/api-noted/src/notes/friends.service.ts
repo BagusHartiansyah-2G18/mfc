@@ -1,11 +1,93 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InviteFriendDto, RespondFriendDto } from './dto/friends.dto';
 import { AuthenticatedUser } from '../auth/jwt-auth.guard';
 
+interface RegisteredUserRecord {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  status: string;
+  role?: {
+    id?: string;
+    name?: string;
+  } | null;
+  profile?: {
+    department?: string | null;
+    jobTitle?: string | null;
+    avatarUrl?: string | null;
+  } | null;
+}
+
 @Injectable()
 export class FriendsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private getUserApiBases(): string[] {
+    if (process.env.API_USER_URL) {
+      return [process.env.API_USER_URL.replace(/\/$/, '')];
+    }
+    return ['http://api:3001/api', 'http://host.docker.internal:3001/api', 'http://localhost:3001/api'];
+  }
+
+  private async fetchRegisteredUsers(query: string): Promise<RegisteredUserRecord[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    let lastError: unknown = null;
+    for (const base of this.getUserApiBases()) {
+      try {
+        const res = await fetch(
+          `${base}/users?search=${encodeURIComponent(trimmed)}&limit=10`,
+          { method: 'GET', headers: { Accept: 'application/json' } }
+        );
+        if (!res.ok) continue;
+        const json = (await res.json()) as { success?: boolean; data?: RegisteredUserRecord[] };
+        if (json?.success && Array.isArray(json.data)) {
+          return json.data;
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    throw new ServiceUnavailableException(
+      `Layanan verifikasi pengguna tidak dapat dijangkau${lastError instanceof Error ? `: ${lastError.message}` : '.'}`
+    );
+  }
+
+  // 0. Cari & Verifikasi Pengguna Terdaftar (untuk autocomplete & validasi sebelum invite)
+  async lookupUsers(currentUser: AuthenticatedUser, query: string) {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      return { success: true, data: [] };
+    }
+
+    const candidates = await this.fetchRegisteredUsers(trimmed);
+    const filtered = candidates
+      .filter(
+        (u) =>
+          u.id !== currentUser.id &&
+          u.email?.toLowerCase() !== currentUser.email.toLowerCase() &&
+          u.status === 'active'
+      )
+      .map((u) => ({
+        id: u.id,
+        username: u.username,
+        name: u.name,
+        email: u.email,
+        status: u.status,
+        role: u.role?.name || 'User',
+        department: u.profile?.department || null,
+        jobTitle: u.profile?.jobTitle || null,
+      }));
+
+    return {
+      success: true,
+      data: filtered,
+    };
+  }
 
   // 1. Ambil seluruh daftar rekan terhubung (Friends List)
   async getFriends(user: AuthenticatedUser) {
@@ -38,15 +120,46 @@ export class FriendsService {
     };
   }
 
-  // 2. Hubungkan rekan baru (Invite or Auto-Connect)
+  // 2. Hubungkan rekan baru (Wajib terverifikasi di layanan User Management)
   async inviteFriend(user: AuthenticatedUser, dto: InviteFriendDto) {
-    if (dto.friendEmail.toLowerCase() === user.email.toLowerCase()) {
+    const identifier = (dto.friendEmail || '').trim().toLowerCase();
+    if (!identifier) {
+      throw new BadRequestException('Email atau username rekan wajib diisi.');
+    }
+
+    if (identifier === user.email.toLowerCase()) {
       throw new BadRequestException('Anda tidak dapat menambahkan diri sendiri sebagai rekan.');
     }
 
-    // Tentukan ID rekan berdasarkan hash email atau input
-    const friendId = `usr-${Buffer.from(dto.friendEmail).toString('hex').slice(0, 10)}`;
-    const friendName = dto.friendName || dto.friendEmail.split('@')[0];
+    const candidates = await this.fetchRegisteredUsers(identifier);
+    const matchedUser = candidates.find(
+      (u) =>
+        u.email?.toLowerCase() === identifier ||
+        u.username?.toLowerCase() === identifier
+    );
+
+    if (!matchedUser) {
+      throw new NotFoundException(
+        'Email atau username tidak terdaftar di sistem. Hanya pengguna terdaftar yang dapat ditambahkan.'
+      );
+    }
+
+    if (matchedUser.status !== 'active') {
+      throw new BadRequestException(
+        'Akun pengguna tersebut sedang tidak aktif dan tidak dapat ditambahkan sebagai rekan.'
+      );
+    }
+
+    if (
+      matchedUser.id === user.id ||
+      matchedUser.email.toLowerCase() === user.email.toLowerCase()
+    ) {
+      throw new BadRequestException('Anda tidak dapat menambahkan diri sendiri sebagai rekan.');
+    }
+
+    const friendId = matchedUser.id;
+    const friendEmail = matchedUser.email;
+    const friendName = dto.friendName?.trim() || matchedUser.name;
 
     // Cek apakah sudah ada hubungan pertemanan
     const existing = await this.prisma.userFriend.findFirst({
@@ -54,20 +167,27 @@ export class FriendsService {
         OR: [
           { userId: user.id, friendId },
           { userId: friendId, friendId: user.id },
-          { userId: user.id, friendEmail: dto.friendEmail },
+          { userId: user.id, friendEmail },
         ],
       },
     });
 
     if (existing) {
       if (!existing.aktif) {
-        await this.prisma.userFriend.update({
+        const reactivated = await this.prisma.userFriend.update({
           where: { id: existing.id },
-          data: { aktif: true, status: 'ACCEPTED' },
+          data: {
+            friendId,
+            friendName,
+            friendEmail,
+            aktif: true,
+            status: 'ACCEPTED',
+          },
         });
         return {
           success: true,
           message: 'Relasi pertemanan berhasil diaktifkan kembali.',
+          data: reactivated,
         };
       }
       return {
@@ -82,7 +202,7 @@ export class FriendsService {
         userId: user.id,
         friendId,
         friendName,
-        friendEmail: dto.friendEmail,
+        friendEmail,
         status: 'ACCEPTED',
         aktif: true,
       },
@@ -90,7 +210,7 @@ export class FriendsService {
 
     return {
       success: true,
-      message: 'Rekan baru berhasil ditambahkan ke Friends List.',
+      message: `Rekan terverifikasi (${friendName}) berhasil ditambahkan ke Friends List.`,
       data: created,
     };
   }

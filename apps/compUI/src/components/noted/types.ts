@@ -253,6 +253,7 @@ export interface UserFriend {
   friendUserId: string;
   friendName: string;
   friendEmail: string;
+  friendRole?: string;
   status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
   isRequester?: boolean;
   createdAt?: string;
