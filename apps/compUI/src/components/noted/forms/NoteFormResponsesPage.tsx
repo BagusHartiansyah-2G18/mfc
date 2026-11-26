@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button } from '@org/ui';
+import { Button, Input } from '@org/ui';
 import {
   AlertCircle,
   ArrowLeft,
@@ -8,8 +8,11 @@ import {
   FilePenLine,
   Globe,
   Info,
+  KeyRound,
   Loader2,
   Lock,
+  Pencil,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
 import { authFetch } from '@org/auth';
@@ -17,22 +20,25 @@ import type { DataForm, JudulNote } from '../types';
 import { WorkspaceNav } from '../WorkspaceNav';
 import { NoteDynamicFormTable } from './NoteDynamicFormTable';
 import { NoteDynamicFormRenderer } from './NoteDynamicFormRenderer';
+import { NoteFormAccessModal } from './NoteFormAccessModal';
+import { FormApiIntegrationPanel } from './FormApiIntegrationPanel';
+import { NoteDynamicFormBuilder } from './NoteDynamicFormBuilder';
 
 interface NoteFormResponsesPageProps {
   kdJudul: string;
   formId: string;
   apiBaseUrl?: string;
   authToken?: string;
-  initialTab?: 'rekap' | 'isi' | 'info';
+  initialTab?: 'rekap' | 'isi' | 'info' | 'api';
   onNavigate?: (path: string) => void;
 }
 
-type TabKey = 'rekap' | 'isi' | 'info';
+type TabKey = 'rekap' | 'isi' | 'info' | 'api';
 
 function readInitialTab(fallback: TabKey): TabKey {
   try {
     const tab = new URLSearchParams(window.location.search).get('tab');
-    if (tab === 'rekap' || tab === 'isi' || tab === 'info') return tab;
+    if (tab === 'rekap' || tab === 'isi' || tab === 'info' || tab === 'api') return tab;
   } catch {
     // ignore
   }
@@ -52,6 +58,27 @@ export function NoteFormResponsesPage({
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>(() => readInitialTab(initialTab));
   const [copied, setCopied] = useState(false);
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
+  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+
+  const handleTabChange = useCallback((nextTab: TabKey) => {
+    setTab(nextTab);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', nextTab);
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setTab(readInitialTab(initialTab));
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [initialTab]);
 
   const go = (path: string) => {
     if (onNavigate) onNavigate(path);
@@ -176,6 +203,26 @@ export function NoteFormResponsesPage({
                 <Copy className="h-3.5 w-3.5" /> {copied ? 'Tersalin!' : 'Salin Tautan'}
               </Button>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsBuilderOpen(true)}
+              className="h-7 text-xs gap-1.5"
+              title="Edit & sesuaikan struktur form"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit Form
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAccessModalOpen(true)}
+              className="h-7 text-xs gap-1.5"
+              title="Atur status form (Public / Khusus / Private) secara terpisah dari catatan"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" /> Akses Form
+            </Button>
           </div>
         )}
       </div>
@@ -185,7 +232,7 @@ export function NoteFormResponsesPage({
       <div className="flex items-center gap-1 rounded-xl border border-border/70 bg-muted/20 p-1 w-fit">
         <button
           type="button"
-          onClick={() => setTab('rekap')}
+          onClick={() => handleTabChange('rekap')}
           className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
             tab === 'rekap'
               ? 'bg-card text-foreground shadow-2xs border border-border/70'
@@ -196,7 +243,7 @@ export function NoteFormResponsesPage({
         </button>
         <button
           type="button"
-          onClick={() => setTab('isi')}
+          onClick={() => handleTabChange('isi')}
           className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
             tab === 'isi'
               ? 'bg-card text-foreground shadow-2xs border border-border/70'
@@ -207,7 +254,7 @@ export function NoteFormResponsesPage({
         </button>
         <button
           type="button"
-          onClick={() => setTab('info')}
+          onClick={() => handleTabChange('info')}
           className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
             tab === 'info'
               ? 'bg-card text-foreground shadow-2xs border border-border/70'
@@ -215,6 +262,17 @@ export function NoteFormResponsesPage({
           }`}
         >
           <Info className="h-3.5 w-3.5" /> Info Form
+        </button>
+        <button
+          type="button"
+          onClick={() => handleTabChange('api')}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+            tab === 'api'
+              ? 'bg-card text-foreground shadow-2xs border border-border/70'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <KeyRound className="h-3.5 w-3.5" /> Integrasi API
         </button>
       </div>
 
@@ -244,11 +302,13 @@ export function NoteFormResponsesPage({
             apiBaseUrl={apiBaseUrl}
             onSubmitted={() => {
               fetchForm();
-              setTab('rekap');
+              handleTabChange('rekap');
             }}
             onCancel={() => go(`/forms/${encodeURIComponent(kdJudul)}`)}
           />
         </div>
+      ) : tab === 'api' ? (
+        <FormApiIntegrationPanel kdJudul={kdJudul} formId={form.id} apiBaseUrl={apiBaseUrl} />
       ) : (
         <div className="space-y-3">
           <div className="rounded-xl border border-border/80 bg-card p-4">
@@ -294,10 +354,10 @@ export function NoteFormResponsesPage({
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs space-y-2">
               <p className="font-bold text-emerald-700">Tautan Pengisian Publik</p>
               <div className="flex flex-col sm:flex-row gap-2">
-                <input
+                <Input
                   readOnly
                   value={`${window.location.origin}/p/${form.shareSlug}`}
-                  className="flex-1 h-8 px-2 rounded-lg border border-border bg-background font-mono text-[11px]"
+                  className="flex-1 h-8 bg-background font-mono text-[11px]"
                 />
                 <Button type="button" size="sm" onClick={copyPublicLink} className="h-8 text-xs gap-1.5">
                   <Copy className="h-3.5 w-3.5" /> {copied ? 'Tersalin!' : 'Salin'}
@@ -307,6 +367,24 @@ export function NoteFormResponsesPage({
           )}
         </div>
       )}
+
+      <NoteFormAccessModal
+        isOpen={isAccessModalOpen}
+        onClose={() => setIsAccessModalOpen(false)}
+        form={form}
+        kdJudul={kdJudul}
+        apiBaseUrl={apiBaseUrl}
+        onSaved={() => fetchForm()}
+      />
+
+      <NoteDynamicFormBuilder
+        isOpen={isBuilderOpen}
+        onClose={() => setIsBuilderOpen(false)}
+        kdJudul={kdJudul}
+        editingForm={form}
+        apiBaseUrl={apiBaseUrl}
+        onSaved={() => fetchForm()}
+      />
     </div>
   );
 }

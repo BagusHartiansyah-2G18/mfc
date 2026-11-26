@@ -154,6 +154,20 @@ export interface FormWizardStep {
   fieldKeys?: string[];
 }
 
+export type OptionsSourceMode = 'STATIC_LIST' | 'API_GET' | 'JSON_ARRAY';
+
+export interface FormFieldOptionSource {
+  mode: OptionsSourceMode;
+  apiUrl?: string;
+  apiKey?: string;
+  dataPath?: string;
+  jsonItems?: Record<string, any>[];
+  jsonRaw?: string;
+  valueKey?: string;
+  labelKey?: string;
+  saveFullObject?: boolean;
+}
+
 export interface FormFieldDefinition {
   key: string;
   label: string;
@@ -161,6 +175,8 @@ export interface FormFieldDefinition {
   placeholder?: string;
   required: boolean;
   options?: string[];
+  optionSource?: FormFieldOptionSource;
+  editorMode?: 'NORMAL' | 'WYSIWYG';
   helperText?: string;
   description?: string;
   columns?: any[];

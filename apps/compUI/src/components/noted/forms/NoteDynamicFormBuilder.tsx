@@ -7,6 +7,7 @@ import {
   DialogFooter,
   Button,
   Input,
+  Switch,
 } from '@org/ui';
 import {
   Plus,
@@ -42,6 +43,7 @@ import {
   type FormWizardStep,
 } from '../types';
 import { authFetch } from '@org/auth';
+import { FieldOptionSourceEditor } from './FieldOptionSourceEditor';
 
 interface NoteDynamicFormBuilderProps {
   isOpen: boolean;
@@ -127,6 +129,7 @@ export function NoteDynamicFormBuilder({
   const [activeTab, setActiveTab] = useState<'FIELDS' | 'WIZARD' | 'SETTINGS'>('FIELDS');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tujuanInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Re-sync saat editingForm berubah
   React.useEffect(() => {
@@ -437,7 +440,12 @@ export function NoteDynamicFormBuilder({
   const handleSaveForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tujuan.trim()) {
+      setActiveTab('FIELDS');
       setError('Judul / Keperluan Formulir wajib diisi.');
+      window.setTimeout(() => {
+        tujuanInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        tujuanInputRef.current?.focus();
+      }, 50);
       return;
     }
     if (fields.length === 0) {
@@ -599,10 +607,16 @@ export function NoteDynamicFormBuilder({
                     Judul / Keperluan Formulir <span className="text-rose-500">*</span>
                   </label>
                   <Input
+                    ref={tujuanInputRef}
                     value={tujuan}
-                    onChange={(e) => setTujuan(e.target.value)}
+                    onChange={(e) => {
+                      setTujuan(e.target.value);
+                      if (error) setError(null);
+                    }}
                     placeholder="Contoh: Checklist UAT Kelaikan Sistem"
-                    className="h-8 text-xs bg-background"
+                    className={`h-8 text-xs bg-background ${
+                      error && !tujuan.trim() ? 'border-rose-500 ring-1 ring-rose-500' : ''
+                    }`}
                   />
                 </div>
                 <div className="space-y-1">
@@ -770,26 +784,44 @@ export function NoteDynamicFormBuilder({
                       )}
                     </div>
 
-                    {/* Options list for Select, Radio, Checkbox */}
-                    {['select', 'radio', 'checkbox'].includes(f.type) && (
-                      <div className="space-y-1.5 p-2.5 rounded-lg bg-muted/40 border border-border/50">
-                        <label className="text-[11px] font-semibold text-muted-foreground">
-                          Pilihan Opsi (Pisahkan dengan koma):
-                        </label>
-                        <Input
-                          value={f.options?.join(', ') || ''}
-                          onChange={(e) =>
-                            handleUpdateField(idx, {
-                              options: e.target.value
-                                .split(',')
-                                .map((s) => s.trim())
-                                .filter(Boolean),
-                            })
-                          }
-                          placeholder="Contoh: Sangat Baik, Cukup, Kurang"
-                          className="h-7 text-xs bg-background"
-                        />
+                    {/* Mode Editor Paragraf (Normal vs WYSIWYG) */}
+                    {f.type === 'textarea' && (
+                      <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-muted/40 border border-border/50">
+                        <div className="space-y-0.5">
+                          <span className="text-[11px] font-semibold text-foreground block">
+                            Mode Input Paragraf
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {f.editorMode === 'WYSIWYG'
+                              ? 'Aktif: Text Editor WYSIWYG (Rich Text / Markdown)'
+                              : 'Aktif: Normal (Textarea polos)'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className={f.editorMode !== 'WYSIWYG' ? 'font-semibold text-foreground' : 'text-muted-foreground'}>
+                            Normal
+                          </span>
+                          <Switch
+                            checked={f.editorMode === 'WYSIWYG'}
+                            onCheckedChange={(checked) =>
+                              handleUpdateField(idx, {
+                                editorMode: checked ? 'WYSIWYG' : 'NORMAL',
+                              })
+                            }
+                          />
+                          <span className={f.editorMode === 'WYSIWYG' ? 'font-semibold text-primary' : 'text-muted-foreground'}>
+                            WYSIWYG
+                          </span>
+                        </div>
                       </div>
+                    )}
+
+                    {/* Options list / API / JSON Array for Select, Radio, Checkbox */}
+                    {['select', 'radio', 'checkbox'].includes(f.type) && (
+                      <FieldOptionSourceEditor
+                        field={f}
+                        onUpdate={(patch) => handleUpdateField(idx, patch)}
+                      />
                     )}
 
                     {/* Smart Logic & Conditional Branching Drawer */}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Database, Download, Eye, FileText, Filter, Loader2, RefreshCw, RotateCcw, Search } from 'lucide-react';
-import { Button, Input, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@org/ui';
+import { Button, Input, SelectField, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@org/ui';
 import { authFetch } from '@org/auth';
 import type { DatasetMetadataRow } from './types';
 
@@ -231,40 +231,55 @@ export function NoteDatasetPage({ apiBaseUrl = 'http://localhost:3002/api' }: No
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari responden, form, catatan, atau isi jawaban..." className="h-8 pl-9 text-xs bg-background" />
           </div>
-          <select
-            value={formId}
-            onChange={(e) => {
-              setFormId(e.target.value);
-              setColumnFilters({});
-              setDebouncedColumnFilters({});
-              setPage(1);
-            }}
-            className="h-8 px-2 text-xs rounded-lg border border-border bg-background lg:col-span-2"
-            title="Pilih Form untuk menampilkan filter per kolom jawaban"
-          >
-            <option value="">Semua Form (Pilih Form untuk Filter Kolom)</option>
-            {availableForms.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.tujuan} ({f.kdNote})
-              </option>
-            ))}
-          </select>
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background">
-            <option value="">Semua Status</option>
-            <option value="DRAFT">Draft</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="VERIFIED">Verified</option>
-            <option value="REJECTED">Rejected</option>
-          </select>
-          <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background">
-            <option value={10}>10 / hal</option>
-            <option value={25}>25 / hal</option>
-            <option value={50}>50 / hal</option>
-            <option value={100}>100 / hal</option>
-          </select>
+          <div className="lg:col-span-2">
+            <SelectField
+              size="sm"
+              value={formId}
+              onChange={(val) => {
+                setFormId(val);
+                setColumnFilters({});
+                setDebouncedColumnFilters({});
+                setPage(1);
+              }}
+              options={[
+                { value: '', label: 'Semua Form (Pilih Form untuk Filter Kolom)' },
+                ...availableForms.map((f) => ({
+                  value: f.id,
+                  label: `${f.tujuan} (${f.kdNote})`,
+                })),
+              ]}
+              className="rounded-lg bg-background"
+              title="Pilih Form untuk menampilkan filter per kolom jawaban"
+            />
+          </div>
+          <SelectField
+            size="sm"
+            value={status}
+            onChange={(val) => { setStatus(val); setPage(1); }}
+            options={[
+              { value: '', label: 'Semua Status' },
+              { value: 'DRAFT', label: 'Draft' },
+              { value: 'SUBMITTED', label: 'Submitted' },
+              { value: 'VERIFIED', label: 'Verified' },
+              { value: 'REJECTED', label: 'Rejected' },
+            ]}
+            className="rounded-lg bg-background"
+          />
+          <SelectField
+            size="sm"
+            value={String(limit)}
+            onChange={(val) => { setLimit(Number(val)); setPage(1); }}
+            options={[
+              { value: '10', label: '10 / hal' },
+              { value: '25', label: '25 / hal' },
+              { value: '50', label: '50 / hal' },
+              { value: '100', label: '100 / hal' },
+            ]}
+            className="rounded-lg bg-background"
+          />
           <Input value={kdJudul} onChange={(e) => { setKdJudul(e.target.value); setPage(1); }} placeholder="Filter kdJudul" className="h-8 text-xs bg-background font-mono" />
-          <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background" title="Dari tanggal" />
-          <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} className="h-8 px-2 text-xs rounded-lg border border-border bg-background" title="Sampai tanggal" />
+          <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="h-8 text-xs bg-background" title="Dari tanggal" />
+          <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} className="h-8 text-xs bg-background" title="Sampai tanggal" />
           {hasAnyFilter && (
             <Button type="button" variant="ghost" size="sm" onClick={resetAllFilters} className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground">
               <RotateCcw className="h-3.5 w-3.5" /> Reset Filter
@@ -298,16 +313,16 @@ export function NoteDatasetPage({ apiBaseUrl = 'http://localhost:3002/api' }: No
                       {col.label}
                     </label>
                     {col.options && col.options.length > 0 ? (
-                      <select
+                      <SelectField
+                        size="sm"
                         value={val}
-                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, [col.key]: e.target.value }))}
-                        className="w-full h-8 px-2 text-xs rounded-lg border border-border bg-background"
-                      >
-                        <option value="">Semua {col.label}</option>
-                        {col.options.map((opt) => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
+                        onChange={(nextVal) => setColumnFilters((prev) => ({ ...prev, [col.key]: nextVal }))}
+                        options={[
+                          { value: '', label: `Semua ${col.label}` },
+                          ...col.options.map((opt) => ({ value: opt, label: opt })),
+                        ]}
+                        className="rounded-lg bg-background"
+                      />
                     ) : (
                       <Input
                         value={val}

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Button, Input, Textarea } from '@org/ui';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Button, Input, RichTextEditor, Textarea } from '@org/ui';
 import {
   Send,
   CheckCircle2,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { type DataForm, type FormFieldDefinition } from '../types';
 import { authFetch } from '@org/auth';
+import { DynamicOptionField } from './DynamicOptionField';
 import { SignatureCanvasPad } from './components/SignatureCanvasPad';
 import { RepeaterTableField } from './components/RepeaterTableField';
 import { FormFileUploadField } from './components/FormFileUploadField';
@@ -61,6 +62,12 @@ export function NoteDynamicFormRenderer({
   // Local Storage Draft Key
   const draftKey = `noted_form_draft_${form.id}`;
   const [hasDraftNotice, setHasDraftNotice] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<{
+    answers: Record<string, any>;
+    responderName?: string;
+    responderEmail?: string;
+  } | null>(null);
+  const hasHydratedDraftCheckRef = useRef(false);
 
 
 
@@ -71,33 +78,57 @@ export function NoteDynamicFormRenderer({
 
   const isPublic = form.sharingMode === 'PUBLIC' || isPublicMode;
 
-  // 1. Auto-Restore Draft from LocalStorage on mount
+  // 1. Auto-Restore Draft Check from LocalStorage on mount (tanpa menimpa draft yang ada)
   useEffect(() => {
+    hasHydratedDraftCheckRef.current = false;
     try {
       const saved = localStorage.getItem(draftKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.answers && Object.keys(parsed.answers).length > 0) {
+        const hasNonEmptyAnswer =
+          parsed?.answers &&
+          typeof parsed.answers === 'object' &&
+          Object.values(parsed.answers).some(
+            (v) =>
+              v !== '' &&
+              v !== null &&
+              v !== undefined &&
+              !(Array.isArray(v) && v.length === 0)
+          );
+        const hasIdentity = Boolean(parsed?.responderName?.trim() || parsed?.responderEmail?.trim());
+        if (hasNonEmptyAnswer || hasIdentity) {
+          setPendingDraft({
+            answers: parsed.answers || {},
+            responderName: parsed.responderName,
+            responderEmail: parsed.responderEmail,
+          });
           setHasDraftNotice(true);
         }
       }
     } catch {
       // Ignore storage errors
+    } finally {
+      hasHydratedDraftCheckRef.current = true;
     }
   }, [draftKey]);
 
   const handleRestoreDraft = () => {
     try {
-      const saved = localStorage.getItem(draftKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.answers) setAnswers(parsed.answers);
-        if (parsed.responderName) setResponderName(parsed.responderName);
-        if (parsed.responderEmail) setResponderEmail(parsed.responderEmail);
+      const source =
+        pendingDraft ||
+        (() => {
+          const saved = localStorage.getItem(draftKey);
+          return saved ? JSON.parse(saved) : null;
+        })();
+      if (source) {
+        if (source.answers) setAnswers(source.answers);
+        if (source.responderName) setResponderName(source.responderName);
+        if (source.responderEmail) setResponderEmail(source.responderEmail);
       }
     } catch (e) {
       console.warn('Gagal memulihkan draft:', e);
     }
+    setPendingDraft(null);
     setHasDraftNotice(false);
   };
 
@@ -107,12 +138,23 @@ export function NoteDynamicFormRenderer({
     } catch {
       // Ignore
     }
+    setPendingDraft(null);
     setHasDraftNotice(false);
   };
 
-  // 2. Auto-Save Draft to LocalStorage on changes
+  // 2. Auto-Save Draft to LocalStorage on changes (hanya setelah user mengedit, tidak menimpa saat mount)
   useEffect(() => {
-    if (success) return;
+    if (success || !hasHydratedDraftCheckRef.current || hasDraftNotice) return;
+    const hasAnyValue =
+      Object.values(answers).some(
+        (v) =>
+          v !== '' &&
+          v !== null &&
+          v !== undefined &&
+          !(Array.isArray(v) && v.length === 0)
+      ) ||
+      Boolean(responderName.trim() || responderEmail.trim());
+    if (!hasAnyValue) return;
     try {
       const draftPayload = {
         answers,
@@ -124,25 +166,13 @@ export function NoteDynamicFormRenderer({
     } catch {
       // Ignore storage quota
     }
-  }, [answers, responderName, responderEmail, draftKey, success]);
+  }, [answers, responderName, responderEmail, draftKey, success, hasDraftNotice]);
 
   const handleFieldChange = (key: string, value: any) => {
     setAnswers((prev) => ({
       ...prev,
       [key]: value,
     }));
-  };
-
-  const handleCheckboxToggle = (key: string, optionValue: string) => {
-    const current = Array.isArray(answers[key]) ? answers[key] : [];
-    if (current.includes(optionValue)) {
-      handleFieldChange(
-        key,
-        current.filter((v: string) => v !== optionValue)
-      );
-    } else {
-      handleFieldChange(key, [...current, optionValue]);
-    }
   };
 
   // 3. Conditional Logic Evaluator
@@ -568,100 +598,37 @@ export function NoteDynamicFormRenderer({
                   )}
                 </div>
               ) : field.type === 'textarea' ? (
-                /* 6. Textarea Paragraf */
+                /* 6. Textarea Paragraf (Normal atau Text Editor WYSIWYG) */
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground">
                     {field.label} {field.required && <span className="text-rose-500">*</span>}
                   </label>
-                  <Textarea
-                    value={answers[field.key] || ''}
-                    onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                    placeholder={field.placeholder || ''}
-                    className="min-h-[80px] text-xs bg-background"
-                  />
+                  {field.editorMode === 'WYSIWYG' ? (
+                    <RichTextEditor
+                      value={String(answers[field.key] || '')}
+                      onChange={(val) => handleFieldChange(field.key, val)}
+                      placeholder={field.placeholder || undefined}
+                      minHeight="140px"
+                    />
+                  ) : (
+                    <Textarea
+                      value={answers[field.key] || ''}
+                      onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                      placeholder={field.placeholder || ''}
+                      className="min-h-[80px] text-xs bg-background"
+                    />
+                  )}
                   {field.helperText && (
                     <p className="text-[11px] text-muted-foreground">{field.helperText}</p>
                   )}
                 </div>
-              ) : field.type === 'select' ? (
-                /* 7. Dropdown Select */
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">
-                    {field.label} {field.required && <span className="text-rose-500">*</span>}
-                  </label>
-                  <select
-                    value={answers[field.key] || ''}
-                    onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                    className="h-9 w-full px-3 text-xs rounded-lg border border-border bg-background text-foreground"
-                  >
-                    <option value="">-- Pilih salah satu --</option>
-                    {field.options?.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                  {field.helperText && (
-                    <p className="text-[11px] text-muted-foreground">{field.helperText}</p>
-                  )}
-                </div>
-              ) : field.type === 'radio' ? (
-                /* 8. Radio Button Group */
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground block">
-                    {field.label} {field.required && <span className="text-rose-500">*</span>}
-                  </label>
-                  <div className="space-y-1.5 pt-0.5">
-                    {field.options?.map((opt) => (
-                      <label
-                        key={opt}
-                        className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
-                      >
-                        <input
-                          type="radio"
-                          name={field.key}
-                          value={opt}
-                          checked={answers[field.key] === opt}
-                          onChange={() => handleFieldChange(field.key, opt)}
-                          className="accent-primary"
-                        />
-                        <span>{opt}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {field.helperText && (
-                    <p className="text-[11px] text-muted-foreground">{field.helperText}</p>
-                  )}
-                </div>
-              ) : field.type === 'checkbox' ? (
-                /* 9. Checkbox Multi-Selection */
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground block">
-                    {field.label} {field.required && <span className="text-rose-500">*</span>}
-                  </label>
-                  <div className="space-y-1.5 pt-0.5">
-                    {field.options?.map((opt) => {
-                      const checked = (answers[field.key] || []).includes(opt);
-                      return (
-                        <label
-                          key={opt}
-                          className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => handleCheckboxToggle(field.key, opt)}
-                            className="rounded text-primary focus:ring-primary"
-                          />
-                          <span>{opt}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {field.helperText && (
-                    <p className="text-[11px] text-muted-foreground">{field.helperText}</p>
-                  )}
-                </div>
+              ) : field.type === 'select' || field.type === 'radio' || field.type === 'checkbox' ? (
+                /* 7-9. Select / Radio / Checkbox (Static, API GET + Key, or JSON Array Object) */
+                <DynamicOptionField
+                  field={field}
+                  value={answers[field.key]}
+                  onChange={(val) => handleFieldChange(field.key, val)}
+                />
               ) : field.type === 'file' ? (
                 /* 10. Lampiran Berkas (unggah terpisah, simpan URL) */
                 <FormFileUploadField

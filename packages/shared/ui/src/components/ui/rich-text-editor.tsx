@@ -24,8 +24,6 @@ import {
   FileText,
   Sparkles,
   ChevronDown,
-  Check,
-  HelpCircle,
 } from "lucide-react";
 import { cn } from "../../utils/cn";
 
@@ -57,7 +55,6 @@ export function RichTextEditor({
   const [viewMode, setViewMode] = useState<"write" | "preview" | "split">("write");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

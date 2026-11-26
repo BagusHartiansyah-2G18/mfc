@@ -15,6 +15,7 @@ import {
   QueryFormCatalogDto,
   QueryDatasetDto,
   UploadFormFileDto,
+  CreateFormApiKeyDto,
 } from './dto/flexible-form.dto';
 import { AuthenticatedUser } from '../auth/jwt-auth.guard';
 import * as crypto from 'node:crypto';
@@ -73,6 +74,7 @@ export class FlexibleFormsService {
   private canViewFormResponses(form: any, user?: AuthenticatedUser | null) {
     if (!form) return false;
     if (user?.role === 'Super Administrator' || user?.role === 'Administrator') return true;
+    if (user?.apiKeyFormId && user.apiKeyFormId === form.id) return true;
     if (user && form.kdMember === user.kdMember) return true;
     if (form.sharingMode === 'PUBLIC') return true;
     if (form.sharingMode === 'KHUSUS' && user) {
@@ -779,7 +781,12 @@ export class FlexibleFormsService {
       throw new NotFoundException(`Formulir tidak ditemukan.`);
     }
 
-    const isOwner = Boolean(user && (user.kdMember === form.kdMember || user.role === 'Super Administrator'));
+    const isOwner = Boolean(
+      user &&
+        (user.kdMember === form.kdMember ||
+          user.role === 'Super Administrator' ||
+          user.apiKeyFormId === form.id)
+    );
     if (form.sharingMode === 'PRIVATE' && !isOwner) {
       throw new ForbiddenException('Akses ditolak: Formulir bersifat pribadi.');
     }
@@ -1273,6 +1280,168 @@ export class FlexibleFormsService {
         fieldKey: dto.fieldKey,
         storedAt: new Date().toISOString(),
       },
+    };
+  }
+
+  // -------------------------------------------------------------
+  // Manajemen API Key Per Form (Integrasi Aplikasi Lain)
+  // -------------------------------------------------------------
+  private async ensureFormApiKeyOwner(kdJudul: string, formId: string, user: AuthenticatedUser) {
+    const form = await this.prisma.dataForm.findFirst({
+      where: { id: formId, kdNote: kdJudul },
+    });
+    if (!form) {
+      throw new NotFoundException('Formulir tidak ditemukan.');
+    }
+    const isAdmin = user.role === 'Super Administrator' || user.role === 'Administrator';
+    if (form.kdMember !== user.kdMember && !isAdmin) {
+      throw new ForbiddenException('Hanya pemilik formulir yang dapat mengelola API Key.');
+    }
+    return form;
+  }
+
+  async listFormApiKeys(kdJudul: string, formId: string, user: AuthenticatedUser) {
+    await this.ensureFormApiKeyOwner(kdJudul, formId, user);
+    const keys = await this.prisma.formApiKey.findMany({
+      where: { formId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        formId: true,
+        targetUserId: true,
+        targetUserName: true,
+        targetUserEmail: true,
+        label: true,
+        keyPrefix: true,
+        scopes: true,
+        isActive: true,
+        expiresAt: true,
+        lastUsedAt: true,
+        createdAt: true,
+      },
+    });
+    return { success: true, data: keys };
+  }
+
+  async createFormApiKey(
+    kdJudul: string,
+    formId: string,
+    dto: CreateFormApiKeyDto,
+    user: AuthenticatedUser
+  ) {
+    await this.ensureFormApiKeyOwner(kdJudul, formId, user);
+
+    const label = (dto.label || '').trim();
+    if (!label) {
+      throw new BadRequestException('Nama aplikasi / label API Key wajib diisi.');
+    }
+
+    let targetUserId = user.id;
+    let targetUserName = user.email.split('@')[0] || 'Pemilik Form';
+    let targetUserEmail = user.email;
+
+    if (dto.targetUserId && dto.targetUserId !== user.id) {
+      const friendRel = await this.prisma.userFriend.findFirst({
+        where: {
+          aktif: true,
+          OR: [
+            { userId: user.id, friendId: dto.targetUserId },
+            { userId: dto.targetUserId, friendId: user.id },
+          ],
+        },
+      });
+      if (!friendRel) {
+        throw new BadRequestException(
+          'Pengguna target harus berasal dari daftar rekan (Friend) yang sudah terhubung.'
+        );
+      }
+      targetUserId = dto.targetUserId;
+      targetUserName = friendRel.friendName || friendRel.friendEmail;
+      targetUserEmail = friendRel.friendEmail;
+    }
+
+    const allowedScopes = new Set(['responses:read', 'responses:export', 'responses:submit']);
+    const requestedScopes = (dto.scopes || 'responses:read,responses:export')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => allowedScopes.has(s));
+    const scopes =
+      requestedScopes.length > 0 ? requestedScopes.join(',') : 'responses:read,responses:export';
+
+    const expiresInDays =
+      dto.expiresInDays !== null && dto.expiresInDays !== undefined
+        ? Number(dto.expiresInDays)
+        : null;
+    const expiresAt =
+      expiresInDays && expiresInDays > 0
+        ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+        : null;
+
+    const rawKey = `mfc_live_${crypto.randomBytes(24).toString('hex')}`;
+    const keyPrefix = rawKey.slice(0, 17);
+    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+
+    const created = await this.prisma.formApiKey.create({
+      data: {
+        formId,
+        ownerUserId: user.id,
+        ownerKdMember: user.kdMember,
+        targetUserId,
+        targetUserName,
+        targetUserEmail,
+        label,
+        keyPrefix,
+        keyHash,
+        scopes,
+        isActive: true,
+        expiresAt,
+      },
+      select: {
+        id: true,
+        formId: true,
+        targetUserId: true,
+        targetUserName: true,
+        targetUserEmail: true,
+        label: true,
+        keyPrefix: true,
+        scopes: true,
+        isActive: true,
+        expiresAt: true,
+        lastUsedAt: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'API Key berhasil dibuat. Simpan key ini karena hanya ditampilkan sekali.',
+      data: {
+        ...created,
+        apiKey: rawKey,
+      },
+    };
+  }
+
+  async revokeFormApiKey(
+    kdJudul: string,
+    formId: string,
+    keyId: string,
+    user: AuthenticatedUser
+  ) {
+    await this.ensureFormApiKeyOwner(kdJudul, formId, user);
+    const existing = await this.prisma.formApiKey.findFirst({
+      where: { id: keyId, formId },
+    });
+    if (!existing) {
+      throw new NotFoundException('API Key tidak ditemukan.');
+    }
+    await this.prisma.formApiKey.update({
+      where: { id: keyId },
+      data: { isActive: false },
+    });
+    return {
+      success: true,
+      message: 'API Key berhasil dicabut (dinonaktifkan).',
     };
   }
 }

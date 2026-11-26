@@ -40,6 +40,8 @@ async function bootstrap() {
     allowedHeaders: [
       'Content-Type',
       'Authorization',
+      'X-API-Key',
+      'x-api-key',
       'X-Requested-With',
       'Accept',
       'X-Request-ID',

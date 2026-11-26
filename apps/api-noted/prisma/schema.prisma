@@ -224,10 +224,35 @@ model DataForm {
   note          JudulNote       @relation(fields: [kdNote, kdMember], references: [kdJudul, kdMember], onDelete: Cascade)
   accessRules   DataFormAccess[]
   values        ValueForm[]
+  apiKeys       FormApiKey[]
 
   @@unique([kdNote, tingkat, kd])
   @@index([sharingMode])
   @@map("data_forms")
+}
+
+model FormApiKey {
+  id              String    @id @default(uuid())
+  formId          String    @map("form_id") @db.VarChar(36)
+  ownerUserId     String    @map("owner_user_id") @db.VarChar(100)
+  ownerKdMember   String    @map("owner_kd_member") @db.VarChar(50)
+  targetUserId    String    @map("target_user_id") @db.VarChar(100)
+  targetUserName  String    @map("target_user_name") @db.VarChar(150)
+  targetUserEmail String    @map("target_user_email") @db.VarChar(150)
+  label           String    @db.VarChar(150)
+  keyPrefix       String    @map("key_prefix") @db.VarChar(24)
+  keyHash         String    @unique @map("key_hash") @db.VarChar(128)
+  scopes          String    @default("responses:read,responses:export") @db.VarChar(120)
+  isActive        Boolean   @default(true) @map("is_active")
+  expiresAt       DateTime? @map("expires_at")
+  lastUsedAt      DateTime? @map("last_used_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  form            DataForm  @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([ownerUserId])
+  @@map("form_api_keys")
 }
 
 model DataFormAccess {

@@ -15,11 +15,9 @@ import {
   Users,
   ArrowLeft,
   BookOpen,
-  Calendar,
   Clock,
+  Pencil,
   User,
-  Sparkles,
-  Layers,
 } from 'lucide-react';
 import { authFetch } from '@org/auth';
 import type { DataForm, JudulNote } from '../types';
@@ -62,6 +60,7 @@ export function NoteFormsPage({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+  const [editingForm, setEditingForm] = useState<DataForm | null>(null);
   const [isReaderOpen, setIsReaderOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -175,7 +174,10 @@ export function NoteFormsPage({
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             type="button"
-            onClick={() => setIsBuilderOpen(true)}
+            onClick={() => {
+              setEditingForm(null);
+              setIsBuilderOpen(true);
+            }}
             className="h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
           >
             <Plus className="h-4 w-4" /> Buat Form Baru
@@ -429,6 +431,19 @@ export function NoteFormsPage({
                             type="button"
                             variant="outline"
                             size="sm"
+                            onClick={() => {
+                              setEditingForm(form);
+                              setIsBuilderOpen(true);
+                            }}
+                            className="h-7 px-2 text-xs gap-1"
+                            title="Edit & sesuaikan struktur form"
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={() =>
                               go(
                                 `/forms/${encodeURIComponent(kdJudul)}/${encodeURIComponent(
@@ -509,8 +524,12 @@ export function NoteFormsPage({
 
       <NoteDynamicFormBuilder
         isOpen={isBuilderOpen}
-        onClose={() => setIsBuilderOpen(false)}
+        onClose={() => {
+          setIsBuilderOpen(false);
+          setEditingForm(null);
+        }}
         kdJudul={kdJudul}
+        editingForm={editingForm}
         apiBaseUrl={apiBaseUrl}
         onSaved={fetchForms}
       />

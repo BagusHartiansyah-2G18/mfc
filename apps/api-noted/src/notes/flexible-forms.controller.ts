@@ -24,6 +24,7 @@ import {
   QueryFormDataDto,
   QueryFormCatalogDto,
   QueryDatasetDto,
+  CreateFormApiKeyDto,
 } from './dto/flexible-form.dto';
 import { JwtAuthGuard, RequestWithUser } from '../auth/jwt-auth.guard';
 
@@ -191,6 +192,38 @@ export class FlexibleFormsController {
     res.setHeader('Content-Type', exported.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${exported.filename}"`);
     return res.send(exported.content);
+  }
+
+  @Get(':formId/api-keys')
+  @UseGuards(JwtAuthGuard)
+  async listApiKeys(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.listFormApiKeys(kdJudul, formId, req.user!);
+  }
+
+  @Post(':formId/api-keys')
+  @UseGuards(JwtAuthGuard)
+  async createApiKey(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Body() dto: CreateFormApiKeyDto,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.createFormApiKey(kdJudul, formId, dto, req.user!);
+  }
+
+  @Delete(':formId/api-keys/:keyId')
+  @UseGuards(JwtAuthGuard)
+  async revokeApiKey(
+    @Param('kdJudul') kdJudul: string,
+    @Param('formId') formId: string,
+    @Param('keyId') keyId: string,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.formsService.revokeFormApiKey(kdJudul, formId, keyId, req.user!);
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,9 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
+  Checkbox,
   Input,
+  SelectField,
 } from '@org/ui';
 import {
   Users,
@@ -19,12 +21,27 @@ import {
   Crown,
   Eye,
   AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Search,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import {
   type JudulNote,
   type NoteMember,
+  type UserFriend,
 } from './types';
 import { authFetch } from '@org/auth';
+
+interface ActiveSystemUser {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  status: string;
+  role?: string;
+}
 
 interface NoteMembersModalProps {
   isOpen: boolean;
@@ -35,37 +52,36 @@ interface NoteMembersModalProps {
   authToken?: string;
 }
 
-// Preset pengguna sistem untuk kemudahan simulasi kolaborasi nyata
-const PRESET_USERS = [
-  { id: 'usr-1', name: 'Super Administrator', email: 'admin@bgs-software.id', role: 'OWNER' },
-  { id: 'usr-2', name: 'Sarah Jenkins', email: 'sarah.j@bgs-software.id', role: 'APPROVER' },
-  { id: 'usr-3', name: 'Budi Pratama', email: 'budi.p@bgs-software.id', role: 'CONTRIBUTOR' },
-  { id: 'usr-4', name: 'Alex Wong', email: 'alex.w@bgs-software.id', role: 'CONTRIBUTOR' },
-  { id: 'usr-5', name: 'Rina Melati', email: 'rina.m@bgs-software.id', role: 'FOLLOWER' },
-];
-
 export function NoteMembersModal({
   isOpen,
   onClose,
   note,
   onMembersUpdated,
   apiBaseUrl = 'http://localhost:3002/api',
-  authToken = 'dev-bypass-token-2026',
 }: NoteMembersModalProps) {
   const [members, setMembers] = useState<NoteMember[]>([]);
+  const [activeUsers, setActiveUsers] = useState<ActiveSystemUser[]>([]);
+  const [friends, setFriends] = useState<UserFriend[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Form State
-  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [userSearch, setUserSearch] = useState('');
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedUserSnapshot, setSelectedUserSnapshot] = useState<ActiveSystemUser | null>(null);
   const [customName, setCustomName] = useState('');
   const [customEmail, setCustomEmail] = useState('');
   const [selectedRole, setSelectedRole] = useState<'OWNER' | 'APPROVER' | 'CONTRIBUTOR' | 'FOLLOWER'>('CONTRIBUTOR');
   const [canEdit, setCanEdit] = useState(true);
   const [canApprove, setCanApprove] = useState(false);
+  const lookupAbortRef = useRef<AbortController | null>(null);
+  const comboboxRef = useRef<HTMLDivElement | null>(null);
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     if (!note?.kdJudul) return;
     try {
       setIsLoading(true);
@@ -80,40 +96,168 @@ export function NoteMembersModal({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [apiBaseUrl, note?.kdJudul]);
+
+  const fetchActiveUsers = useCallback(async (q = '') => {
+    lookupAbortRef.current?.abort();
+    const controller = new AbortController();
+    lookupAbortRef.current = controller;
+
+    try {
+      setIsLoadingUsers(true);
+      const url = q.trim()
+        ? `${apiBaseUrl}/friends/lookup?q=${encodeURIComponent(q.trim())}`
+        : `${apiBaseUrl}/friends/lookup`;
+      const usersRes = await authFetch(url, { signal: controller.signal });
+      const usersJson = await usersRes.json().catch(() => ({}));
+      if (usersRes.ok && usersJson.success && Array.isArray(usersJson.data)) {
+        setActiveUsers(usersJson.data);
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.warn('Gagal mengambil daftar pengguna aktif:', err);
+      }
+    } finally {
+      if (lookupAbortRef.current === controller) {
+        setIsLoadingUsers(false);
+      }
+    }
+  }, [apiBaseUrl]);
+
+  const fetchFriends = useCallback(async () => {
+    try {
+      const friendsRes = await authFetch(`${apiBaseUrl}/friends`);
+      const friendsJson = await friendsRes.json().catch(() => ({}));
+      if (friendsRes.ok && friendsJson.success && Array.isArray(friendsJson.data)) {
+        setFriends(friendsJson.data);
+      }
+    } catch (err) {
+      console.warn('Gagal mengambil daftar rekan:', err);
+    }
+  }, [apiBaseUrl]);
+
+  const fetchActiveUsersAndFriends = useCallback(async () => {
+    await Promise.all([fetchActiveUsers(userSearch), fetchFriends()]);
+  }, [fetchActiveUsers, fetchFriends, userSearch]);
 
   useEffect(() => {
     if (isOpen && note?.kdJudul) {
+      setError(null);
+      setSuccess(null);
+      setUserSearch('');
+      setIsUserDropdownOpen(false);
+      setSelectedUserId('');
+      setSelectedUserSnapshot(null);
+      setCustomName('');
+      setCustomEmail('');
       fetchMembers();
+      fetchFriends();
+      fetchActiveUsers('');
     }
-  }, [isOpen, note?.kdJudul]);
+    return () => lookupAbortRef.current?.abort();
+  }, [isOpen, note?.kdJudul, fetchMembers, fetchFriends, fetchActiveUsers]);
 
-  const handleSelectPreset = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const userId = e.target.value;
-    setSelectedPreset(userId);
-    const found = PRESET_USERS.find((u) => u.id === userId);
-    if (found) {
-      setCustomName(found.name);
-      setCustomEmail(found.email);
-      setSelectedRole(found.role as any);
-      setCanEdit(found.role !== 'FOLLOWER');
-      setCanApprove(found.role === 'OWNER' || found.role === 'APPROVER');
-    }
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = window.setTimeout(() => {
+      fetchActiveUsers(userSearch);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [userSearch, isOpen, fetchActiveUsers]);
+
+  const selectedSystemUser = useMemo(
+    () => selectedUserSnapshot || activeUsers.find((u) => u.id === selectedUserId) || null,
+    [selectedUserSnapshot, activeUsers, selectedUserId]
+  );
+
+  const isFriendUser = useCallback(
+    (user: ActiveSystemUser | null) => {
+      if (!user) return false;
+      const emailLower = user.email.toLowerCase();
+      return friends.some(
+        (f) => f.friendUserId === user.id || f.friendEmail?.toLowerCase() === emailLower
+      );
+    },
+    [friends]
+  );
+
+  const isSelectedUserFriend = useMemo(
+    () => isFriendUser(selectedSystemUser),
+    [isFriendUser, selectedSystemUser]
+  );
+
+  const selectableActiveUsers = useMemo(() => {
+    const memberIds = new Set(members.map((m) => m.userId));
+    const memberEmails = new Set(
+      members.map((m) => m.userEmail?.toLowerCase()).filter(Boolean)
+    );
+    return activeUsers.filter(
+      (u) => !memberIds.has(u.id) && !memberEmails.has(u.email.toLowerCase())
+    );
+  }, [activeUsers, members]);
+
+  const handlePickSystemUser = (user: ActiveSystemUser) => {
+    setSelectedUserId(user.id);
+    setSelectedUserSnapshot(user);
+    setCustomName(user.name);
+    setCustomEmail(user.email);
+    setUserSearch(user.name);
+    setIsUserDropdownOpen(false);
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleClearSystemUser = () => {
+    setSelectedUserId('');
+    setSelectedUserSnapshot(null);
+    setCustomName('');
+    setCustomEmail('');
+    setUserSearch('');
+    setIsUserDropdownOpen(true);
+    setError(null);
   };
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!note?.kdJudul) return;
     if (!customName.trim() || !customEmail.trim()) {
-      setError('Nama dan Email anggota wajib diisi.');
+      setError('Pilih pengguna sistem yang aktif terlebih dahulu.');
       return;
     }
 
     try {
       setIsSubmitting(true);
       setError(null);
+      setSuccess(null);
+
+      let autoFriended = false;
+      if (selectedSystemUser && !isSelectedUserFriend) {
+        const friendRes = await authFetch(`${apiBaseUrl}/friends/invite`, {
+          method: 'POST',
+          body: JSON.stringify({
+            friendEmail: selectedSystemUser.email,
+            friendName: selectedSystemUser.name,
+          }),
+        });
+        const friendJson = await friendRes.json().catch(() => ({}));
+        if (!friendRes.ok || !friendJson.success) {
+          throw new Error(friendJson.message || 'Gagal menghubungkan pengguna sebagai rekan.');
+        }
+        autoFriended = true;
+      }
+
       const payload = {
-        userId: selectedPreset || `usr-custom-${Date.now()}`,
+        userId: selectedUserId || `usr-custom-${Date.now()}`,
         userName: customName.trim(),
         userEmail: customEmail.trim(),
         role: selectedRole,
@@ -133,11 +277,18 @@ export function NoteMembersModal({
       }
 
       // Reset form
-      setSelectedPreset('');
+      setSelectedUserId('');
+      setSelectedUserSnapshot(null);
+      setUserSearch('');
       setCustomName('');
       setCustomEmail('');
       setSelectedRole('CONTRIBUTOR');
-      await fetchMembers();
+      setSuccess(
+        autoFriended
+          ? 'Berhasil ditambahkan sebagai kolaborator dan otomatis terhubung ke daftar rekan (Friend).'
+          : 'Anggota berhasil ditambahkan ke kolaborator catatan.'
+      );
+      await Promise.all([fetchMembers(), fetchActiveUsersAndFriends()]);
       onMembersUpdated?.();
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan saat menambahkan anggota.');
@@ -222,6 +373,13 @@ export function NoteMembersModal({
           </div>
         )}
 
+        {success && (
+          <div className="mx-4 mt-3 flex items-center gap-2 p-2.5 text-xs rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{success}</span>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Form Undangan Anggota Baru */}
           <form onSubmit={handleAddMember} className="p-4 rounded-xl border border-border/80 bg-muted/30 space-y-3">
@@ -231,34 +389,114 @@ export function NoteMembersModal({
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground">Pilih Cepat Pengguna Sistem</label>
-                <select
-                  value={selectedPreset}
-                  onChange={handleSelectPreset}
-                  className="w-full h-8 text-xs rounded-md border border-border bg-card px-2.5 text-foreground"
-                >
-                  <option value="">-- Pilih Akun Terdaftar --</option>
-                  {PRESET_USERS.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.role})
-                    </option>
-                  ))}
-                </select>
+              <div className="space-y-1 relative" ref={comboboxRef}>
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Pilih Cepat Pengguna Sistem (Active)
+                </label>
+                <div className="relative flex items-center">
+                  <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={userSearch}
+                    onFocus={() => setIsUserDropdownOpen(true)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setUserSearch(val);
+                      if (selectedUserId) {
+                        setSelectedUserId('');
+                        setSelectedUserSnapshot(null);
+                      }
+                      setIsUserDropdownOpen(true);
+                    }}
+                    placeholder="Cari & pilih pengguna aktif..."
+                    className="pl-8 pr-14 h-8 text-xs bg-card"
+                  />
+                  <div className="absolute right-2 flex items-center gap-1">
+                    {isLoadingUsers && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                    {(userSearch || selectedUserId) && (
+                      <button
+                        type="button"
+                        onClick={handleClearSystemUser}
+                        className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-pointer"
+                        title="Bersihkan pilihan"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsUserDropdownOpen((o) => !o)}
+                      className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-pointer"
+                      title="Tampilkan daftar pengguna"
+                    >
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {isUserDropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg max-h-56 overflow-y-auto divide-y divide-border/50">
+                    {isLoadingUsers && selectableActiveUsers.length === 0 ? (
+                      <div className="p-3 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Memuat pengguna aktif...
+                      </div>
+                    ) : selectableActiveUsers.length === 0 ? (
+                      <div className="p-3 text-center text-[11px] text-muted-foreground">
+                        Tidak ada pengguna aktif lain yang tersedia.
+                      </div>
+                    ) : (
+                      selectableActiveUsers.map((u) => {
+                        const friend = isFriendUser(u);
+                        const isSelected = u.id === selectedUserId;
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => handlePickSystemUser(u)}
+                            className={`w-full text-left px-2.5 py-2 hover:bg-muted/60 transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                              isSelected ? 'bg-primary/5' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="h-6 w-6 rounded-full bg-primary/10 text-primary font-bold text-[10px] flex items-center justify-center shrink-0">
+                                {(u.name || u.username || '?').charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-foreground truncate">{u.name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                              </div>
+                            </div>
+                            <span
+                              className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 border ${
+                                friend
+                                  ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                  : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                              }`}
+                            >
+                              {friend ? 'Friend' : 'Belum Berteman'}
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1">
                 <label className="text-[11px] font-medium text-muted-foreground">Peran / Hak Akses (RACI)</label>
-                <select
+                <SelectField
+                  size="sm"
                   value={selectedRole}
-                  onChange={(e: any) => setSelectedRole(e.target.value)}
-                  className="w-full h-8 text-xs rounded-md border border-border bg-card px-2.5 text-foreground"
-                >
-                  <option value="CONTRIBUTOR">Kontributor (Dapat Edit & Selesaikan Tugas)</option>
-                  <option value="APPROVER">Approver / Manager (Persetujuan BAST & Anggaran)</option>
-                  <option value="FOLLOWER">Follower / Pengamat (Hanya Melihat Progres)</option>
-                  <option value="OWNER">Pemilik Utama (Hak Penuh)</option>
-                </select>
+                  onChange={(val) => setSelectedRole(val as any)}
+                  options={[
+                    { value: 'CONTRIBUTOR', label: 'Kontributor (Dapat Edit & Selesaikan Tugas)' },
+                    { value: 'APPROVER', label: 'Approver / Manager (Persetujuan BAST & Anggaran)' },
+                    { value: 'FOLLOWER', label: 'Follower / Pengamat (Hanya Melihat Progres)' },
+                    { value: 'OWNER', label: 'Pemilik Utama (Hak Penuh)' },
+                  ]}
+                  className="rounded-md bg-card"
+                />
               </div>
             </div>
 
@@ -285,26 +523,30 @@ export function NoteMembersModal({
               </div>
             </div>
 
+            {selectedSystemUser && !isSelectedUserFriend && (
+              <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px]">
+                <span>
+                  <strong>{selectedSystemUser.name}</strong> belum ada di daftar rekan Anda. Saat disubmit, pengguna akan otomatis dihubungkan sebagai <strong>Friend</strong> sekaligus menjadi kolaborator.
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
                     checked={canEdit}
-                    onChange={(e) => setCanEdit(e.target.checked)}
+                    onCheckedChange={(checked) => setCanEdit(Boolean(checked))}
                     disabled={selectedRole === 'FOLLOWER'}
-                    className="rounded border-border"
                   />
                   <span>Boleh Mengedit</span>
                 </label>
 
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
                     checked={canApprove}
-                    onChange={(e) => setCanApprove(e.target.checked)}
+                    onCheckedChange={(checked) => setCanApprove(Boolean(checked))}
                     disabled={selectedRole === 'FOLLOWER'}
-                    className="rounded border-border"
                   />
                   <span>Hak Approver</span>
                 </label>
@@ -312,11 +554,15 @@ export function NoteMembersModal({
 
               <Button
                 type="submit"
-                disabled={isSubmitting || !customName.trim()}
+                disabled={isSubmitting || !customName.trim() || !customEmail.trim()}
                 className="h-8 text-xs font-semibold gap-1.5"
               >
                 <UserPlus className="h-3.5 w-3.5" />
-                {isSubmitting ? 'Menyimpan...' : 'Tambahkan'}
+                {isSubmitting
+                  ? 'Menyimpan...'
+                  : selectedSystemUser && !isSelectedUserFriend
+                    ? 'Add Friend & Tambahkan'
+                    : 'Tambahkan'}
               </Button>
             </div>
           </form>

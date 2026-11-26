@@ -3,15 +3,20 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import * as crypto from 'node:crypto';
 import type { Request } from 'express';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface AuthenticatedUser {
   id: string;
   email: string;
   role: string;
   kdMember: string;
+  apiKeyFormId?: string;
+  apiKeyScopes?: string[];
 }
 
 export interface RequestWithUser extends Request {
@@ -70,6 +75,8 @@ export function extractUserFromAuthHeader(authHeader?: string): AuthenticatedUse
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
+
   private getSecret(): string {
     const raw = process.env.JWT_SECRET || 'bgs-microfe-enterprise-secret-key-2026';
     return raw.replace(/^["']|["']$/g, '').trim();
@@ -80,9 +87,63 @@ export class JwtAuthGuard implements CanActivate {
     return raw === 'true' || raw === '1';
   }
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<RequestWithUser>();
+    const rawApiKeyHeader = req.headers['x-api-key'];
     const authHeader = req.headers['authorization'];
+    const apiKeyFromAuth =
+      authHeader && authHeader.startsWith('ApiKey ') ? authHeader.substring(7).trim() : '';
+    const apiKey =
+      (Array.isArray(rawApiKeyHeader) ? rawApiKeyHeader[0] : rawApiKeyHeader)?.trim() ||
+      apiKeyFromAuth;
+
+    // 0. Verifikasi API Key jika header X-API-Key / ApiKey dikirim (untuk integrasi aplikasi lain)
+    if (apiKey) {
+      if (!this.prisma) {
+        throw new UnauthorizedException('Invalid API Key');
+      }
+      const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+      const keyRecord = await this.prisma.formApiKey.findUnique({
+        where: { keyHash },
+      });
+      if (
+        !keyRecord ||
+        !keyRecord.isActive ||
+        (keyRecord.expiresAt && keyRecord.expiresAt.getTime() < Date.now())
+      ) {
+        throw new UnauthorizedException('Invalid API Key');
+      }
+      const paramFormId = req.params?.['formId'];
+      if (paramFormId && keyRecord.formId !== paramFormId) {
+        throw new ForbiddenException('API Key tidak memiliki akses ke formulir ini.');
+      }
+
+      const scopes = keyRecord.scopes
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (req.method !== 'GET' && !scopes.includes('responses:submit')) {
+        throw new ForbiddenException('API Key ini hanya memiliki izin baca (Read-Only).');
+      }
+
+      req.user = {
+        id: keyRecord.targetUserId,
+        email: keyRecord.targetUserEmail,
+        role: 'API_CLIENT',
+        kdMember: Buffer.from(keyRecord.targetUserId).toString('base64'),
+        apiKeyFormId: keyRecord.formId,
+        apiKeyScopes: scopes,
+      };
+
+      this.prisma.formApiKey
+        .update({
+          where: { id: keyRecord.id },
+          data: { lastUsedAt: new Date() },
+        })
+        .catch(() => {});
+
+      return true;
+    }
 
     // 1. Verifikasi Token jika ada
     if (authHeader && authHeader.startsWith('Bearer ')) {

@@ -149,6 +149,13 @@ export interface QueryFormDataDto {
   sort?: string;
 }
 
+export interface CreateFormApiKeyDto {
+  label: string;
+  targetUserId?: string;
+  scopes?: string;
+  expiresInDays?: number | null;
+}
+
 export interface QueryDatasetDto {
   page?: string | number;
   limit?: string | number;

@@ -31,15 +31,17 @@ export class FriendsService {
     return ['http://api:3001/api', 'http://host.docker.internal:3001/api', 'http://localhost:3001/api'];
   }
 
-  private async fetchRegisteredUsers(query: string): Promise<RegisteredUserRecord[]> {
+  private async fetchRegisteredUsers(query = ''): Promise<RegisteredUserRecord[]> {
     const trimmed = query.trim();
-    if (!trimmed) return [];
+    const qs = trimmed
+      ? `search=${encodeURIComponent(trimmed)}&status=active&limit=10`
+      : `status=active&limit=10`;
 
     let lastError: unknown = null;
     for (const base of this.getUserApiBases()) {
       try {
         const res = await fetch(
-          `${base}/users?search=${encodeURIComponent(trimmed)}&limit=10`,
+          `${base}/users?${qs}`,
           { method: 'GET', headers: { Accept: 'application/json' } }
         );
         if (!res.ok) continue;
@@ -57,13 +59,9 @@ export class FriendsService {
     );
   }
 
-  // 0. Cari & Verifikasi Pengguna Terdaftar (untuk autocomplete & validasi sebelum invite)
-  async lookupUsers(currentUser: AuthenticatedUser, query: string) {
+  // 0. Cari & Verifikasi Pengguna Terdaftar (untuk autocomplete, pilih cepat & validasi sebelum invite)
+  async lookupUsers(currentUser: AuthenticatedUser, query = '') {
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      return { success: true, data: [] };
-    }
-
     const candidates = await this.fetchRegisteredUsers(trimmed);
     const filtered = candidates
       .filter(
