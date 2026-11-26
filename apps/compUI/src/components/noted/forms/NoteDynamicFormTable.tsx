@@ -15,15 +15,18 @@ import {
   ChevronRight,
   Filter,
   Paperclip,
+  Pencil,
+  X,
 } from 'lucide-react';
 import {
   type DataForm,
   type FlatFormProjection,
 } from '../types';
-import { authFetch } from '@org/auth';
+import { authFetch, authStore, isAdminRole } from '@org/auth';
 import { FormAnalyticsModal } from './components/FormAnalyticsModal';
 import { FormReceiptPrintModal } from './components/FormReceiptPrintModal';
 import { FilePreviewModal, type PreviewFile } from './components/FilePreviewModal';
+import { NoteDynamicFormRenderer } from './NoteDynamicFormRenderer';
 
 interface NoteDynamicFormTableProps {
   form: DataForm;
@@ -49,7 +52,28 @@ export function NoteDynamicFormTable({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<Record<string, any> | null>(null);
+  const [editingRow, setEditingRow] = useState<Record<string, any> | null>(null);
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+
+  const currentUser = authStore.getUser();
+  const canEditResponse = Boolean(
+    currentUser &&
+      (isAdminRole(currentUser.role) ||
+        (currentUser.kdMember && form.kdMember && currentUser.kdMember === form.kdMember))
+  );
+
+  const extractRowAnswers = useCallback(
+    (row: Record<string, any>) => {
+      const initial: Record<string, any> = {};
+      for (const field of form.fields || []) {
+        if (field.key && row[field.key] !== undefined) {
+          initial[field.key] = row[field.key];
+        }
+      }
+      return initial;
+    },
+    [form.fields]
+  );
 
   // Next-Level Modals: Visual Analytics & PDF Receipt Print
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
@@ -78,7 +102,7 @@ export function NoteDynamicFormTable({
       if (toDate) params.set('to', toDate);
 
       const res = await authFetch(
-        `${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/data?${params.toString()}`
+        `${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}/data?${params.toString()}`
       );
       const json = await res.json();
       if (json.success) {
@@ -102,7 +126,7 @@ export function NoteDynamicFormTable({
     if (!window.confirm('Hapus respon ini secara permanen dari basis data?')) return;
     try {
       setIsLoading(true);
-      const res = await authFetch(`${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/values/${valId}`, {
+      const res = await authFetch(`${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}/values/${encodeURIComponent(valId)}`, {
         method: 'DELETE',
       });
       const json = await res.json();
@@ -121,7 +145,7 @@ export function NoteDynamicFormTable({
   };
 
   const handleExport = (format: 'csv' | 'json') => {
-    const url = `${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/export?format=${format}`;
+    const url = `${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}/export?format=${format}`;
     window.open(url, '_blank');
   };
 
@@ -414,6 +438,16 @@ export function NoteDynamicFormTable({
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
+                        {canEditResponse && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingRow(row)}
+                            className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary cursor-pointer"
+                            title="Edit Respon (Pemilik / Admin)"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleDeleteResponse(row.id)}
@@ -617,16 +651,34 @@ export function NoteDynamicFormTable({
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-border/80">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPrintOpen(true)}
-                className="text-xs gap-1.5 text-indigo-600 border-indigo-500/30 cursor-pointer"
-              >
-                <Printer className="h-3.5 w-3.5" />
-                <span>Cetak Lembar PDF</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPrintOpen(true)}
+                  className="text-xs gap-1.5 text-indigo-600 border-indigo-500/30 cursor-pointer"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Cetak Lembar PDF</span>
+                </Button>
+                {canEditResponse && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const target = selectedRow;
+                      setSelectedRow(null);
+                      setEditingRow(target);
+                    }}
+                    className="text-xs gap-1.5 cursor-pointer"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span>Edit Respon</span>
+                  </Button>
+                )}
+              </div>
               <Button
                 type="button"
                 variant="default"
@@ -637,6 +689,46 @@ export function NoteDynamicFormTable({
                 Tutup
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Response Modal (Hanya Pemilik Form / Admin) */}
+      {editingRow && canEditResponse && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border/80 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Edit Respon Formulir</h3>
+                <p className="text-[11px] text-muted-foreground">
+                  ID: <span className="font-mono">{editingRow.id}</span> · Oleh:{' '}
+                  {editingRow.responderName || 'Anonim'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingRow(null)}
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground cursor-pointer"
+                title="Tutup"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <NoteDynamicFormRenderer
+              form={form}
+              kdJudul={kdJudul}
+              apiBaseUrl={apiBaseUrl}
+              editingValueId={editingRow.id}
+              initialAnswers={extractRowAnswers(editingRow)}
+              initialResponderName={editingRow.responderName || ''}
+              initialResponderEmail={editingRow.responderEmail || ''}
+              onSubmitted={() => {
+                setEditingRow(null);
+                fetchFlatData();
+              }}
+              onCancel={() => setEditingRow(null)}
+            />
           </div>
         </div>
       )}

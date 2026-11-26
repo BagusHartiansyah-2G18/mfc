@@ -31,6 +31,10 @@ interface NoteDynamicFormRendererProps {
   authToken?: string;
   originHost?: string;
   isPublicMode?: boolean;
+  editingValueId?: string;
+  initialAnswers?: Record<string, any>;
+  initialResponderName?: string;
+  initialResponderEmail?: string;
 }
 
 export function NoteDynamicFormRenderer({
@@ -42,13 +46,19 @@ export function NoteDynamicFormRenderer({
   authToken = 'dev-bypass-token-2026',
   originHost = 'noted:4203',
   isPublicMode = false,
+  editingValueId,
+  initialAnswers,
+  initialResponderName = '',
+  initialResponderEmail = '',
 }: NoteDynamicFormRendererProps) {
+  const isEditMode = Boolean(editingValueId);
+
   // Guest fields jika mode publik
-  const [responderName, setResponderName] = useState('');
-  const [responderEmail, setResponderEmail] = useState('');
+  const [responderName, setResponderName] = useState(initialResponderName);
+  const [responderEmail, setResponderEmail] = useState(initialResponderEmail);
 
   // Values map { [fieldKey]: any }
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers || {});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -78,8 +88,23 @@ export function NoteDynamicFormRenderer({
 
   const isPublic = form.sharingMode === 'PUBLIC' || isPublicMode;
 
+  // Sync initial answers when switching row in edit mode
+  useEffect(() => {
+    if (!isEditMode) return;
+    setAnswers(initialAnswers || {});
+    setResponderName(initialResponderName);
+    setResponderEmail(initialResponderEmail);
+    setSuccess(false);
+    setError(null);
+    setCurrentStep(1);
+  }, [isEditMode, editingValueId, initialAnswers, initialResponderName, initialResponderEmail]);
+
   // 1. Auto-Restore Draft Check from LocalStorage on mount (tanpa menimpa draft yang ada)
   useEffect(() => {
+    if (isEditMode) {
+      hasHydratedDraftCheckRef.current = true;
+      return;
+    }
     hasHydratedDraftCheckRef.current = false;
     try {
       const saved = localStorage.getItem(draftKey);
@@ -144,7 +169,7 @@ export function NoteDynamicFormRenderer({
 
   // 2. Auto-Save Draft to LocalStorage on changes (hanya setelah user mengedit, tidak menimpa saat mount)
   useEffect(() => {
-    if (success || !hasHydratedDraftCheckRef.current || hasDraftNotice) return;
+    if (isEditMode || success || !hasHydratedDraftCheckRef.current || hasDraftNotice) return;
     const hasAnyValue =
       Object.values(answers).some(
         (v) =>
@@ -218,7 +243,7 @@ export function NoteDynamicFormRenderer({
   // Validasi Step Berjalan sebelum lanjut
   const validateCurrentStep = (): boolean => {
     setError(null);
-    if (currentStep === 1 && isPublic && !responderName.trim()) {
+    if (currentStep === 1 && isPublic && !isEditMode && !responderName.trim()) {
       setError('Nama Lengkap responden wajib diisi.');
       return false;
     }
@@ -255,7 +280,7 @@ export function NoteDynamicFormRenderer({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (form.isLocked || isExpired || isQuotaFull) {
+    if (!isEditMode && (form.isLocked || isExpired || isQuotaFull)) {
       setError('Formulir saat ini ditutup dan tidak dapat menerima respon baru.');
       return;
     }
@@ -266,20 +291,24 @@ export function NoteDynamicFormRenderer({
       setIsSubmitting(true);
       setError(null);
 
-      const isDirectPublicSlug = isPublicMode && form.shareSlug;
-      const endpoint = isDirectPublicSlug
+      const isDirectPublicSlug = !isEditMode && isPublicMode && form.shareSlug;
+      const endpoint = isEditMode
+        ? `${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}/values/${encodeURIComponent(editingValueId!)}`
+        : isDirectPublicSlug
         ? `${apiBaseUrl}/public/forms/${form.shareSlug}/values`
-        : `${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/values`;
+        : `${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}/values`;
 
-      const payload = {
-        responderName: responderName.trim() || undefined,
-        responderEmail: responderEmail.trim() || undefined,
-        originHost,
-        answers,
-      };
+      const payload = isEditMode
+        ? { answers }
+        : {
+            responderName: responderName.trim() || undefined,
+            responderEmail: responderEmail.trim() || undefined,
+            originHost,
+            answers,
+          };
 
       const res = await authFetch(endpoint, {
-        method: 'POST',
+        method: isEditMode ? 'PUT' : 'POST',
         skipAuth: Boolean(isDirectPublicSlug),
         body: JSON.stringify(payload),
       });
@@ -290,9 +319,11 @@ export function NoteDynamicFormRenderer({
       }
 
       setSuccess(true);
-      handleClearDraft();
+      if (!isEditMode) {
+        handleClearDraft();
+      }
       if (onSubmitted) {
-        setTimeout(onSubmitted, 1800);
+        setTimeout(onSubmitted, isEditMode ? 600 : 1800);
       }
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan sistem saat mengirim data.');
@@ -301,7 +332,7 @@ export function NoteDynamicFormRenderer({
     }
   };
 
-  if (isExpired || isQuotaFull || form.isLocked) {
+  if (!isEditMode && (isExpired || isQuotaFull || form.isLocked)) {
     return (
       <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-8 text-center space-y-3">
         <Clock className="h-10 w-10 text-amber-500 mx-auto" />
@@ -640,7 +671,7 @@ export function NoteDynamicFormRenderer({
                   uploadEndpoint={
                     isPublicMode && form.shareSlug
                       ? `${apiBaseUrl}/public/forms/${form.shareSlug}/upload`
-                      : `${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/upload`
+                      : `${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}/upload`
                   }
                   skipAuth={Boolean(isPublicMode && form.shareSlug)}
                 />

@@ -970,12 +970,15 @@ export class FlexibleFormsService {
       throw new NotFoundException(`Data respon tidak ditemukan.`);
     }
 
-    // Periksa allowSelfEdit
-    const isOwner = user.kdMember === value.form.kdMember || user.role === 'Super Administrator';
-    const isResponder = user.id === value.responderId;
+    const normalizedRole = String(user.role || '').trim().toLowerCase();
+    const isAdmin =
+      normalizedRole === 'super administrator' || normalizedRole === 'administrator';
+    const isOwner = Boolean(user.kdMember && user.kdMember === value.form.kdMember);
 
-    if (!isOwner && (!isResponder || !value.form.allowSelfEdit)) {
-      throw new ForbiddenException('Anda tidak berhak memperbarui data respon ini.');
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException(
+        'Hanya pemilik formulir atau admin yang dapat memperbarui data respon.'
+      );
     }
 
     const updateData: any = {};
@@ -985,12 +988,12 @@ export class FlexibleFormsService {
         updatedAt: new Date().toISOString(),
       };
     }
-    if (dto.status && isOwner) {
+    if (dto.status && (isOwner || isAdmin)) {
       updateData.status = dto.status;
       updateData.verifiedAt = new Date();
       updateData.verifiedBy = user.email;
     }
-    if (dto.verifierNotes && isOwner) {
+    if (dto.verifierNotes && (isOwner || isAdmin)) {
       updateData.verifierNotes = dto.verifierNotes.trim();
     }
 
@@ -1195,6 +1198,87 @@ export class FlexibleFormsService {
       ...result,
       receiptCode,
       submittedAt: new Date().toISOString(),
+    };
+  }
+
+  // 8a-read. Ambil data respon publik (read-only tanpa PII) untuk form sharingMode = PUBLIC
+  async getPublicFormDataBySlug(shareSlug: string, query: any = {}) {
+    const form = await this.prisma.dataForm.findFirst({
+      where: { shareSlug },
+    });
+    if (!form || form.sharingMode !== 'PUBLIC') {
+      throw new NotFoundException('Formulir publik tidak ditemukan atau tidak bersifat publik.');
+    }
+
+    const { page, limit, skip } = this.parsePagination(query, 100, 25);
+    const search = this.normalizeSearch(query.search, 100);
+    const orderBy: any =
+      query.sort === 'oldest' ? { createdAt: 'asc' } : { createdAt: 'desc' };
+
+    const columnFilters: Record<string, string> = {};
+    for (const [qk, qv] of Object.entries(query || {})) {
+      if (qk.startsWith('filter_') && qv !== null && qv !== undefined) {
+        const fieldKey = qk.slice('filter_'.length);
+        if (/^[a-zA-Z0-9_]+$/.test(fieldKey)) {
+          const str = String(qv).trim().slice(0, 100);
+          if (str) columnFilters[fieldKey] = str;
+        }
+      }
+    }
+
+    const valueRecords = await this.prisma.valueForm.findMany({
+      where: { formId: form.id },
+      orderBy,
+    });
+
+    const extractText = (val: any): string => {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return String(val);
+      if (Array.isArray(val)) return val.map(extractText).join(' ');
+      if (typeof val === 'object') return Object.values(val).map(extractText).join(' ');
+      return String(val);
+    };
+
+    let rows = valueRecords.map((vr) => {
+      const answersObj = ((vr.answers as any)?.answers || vr.answers || {}) as Record<string, any>;
+      return {
+        id: vr.id,
+        status: vr.status,
+        createdAt: vr.createdAt,
+        ...answersObj,
+      };
+    });
+
+    const filterEntries = Object.entries(columnFilters);
+    if (filterEntries.length > 0) {
+      rows = rows.filter((r: Record<string, any>) =>
+        filterEntries.every(([k, needle]) =>
+          extractText(r[k]).toLowerCase().includes(needle.toLowerCase())
+        )
+      );
+    }
+
+    if (search) {
+      const s = search.toLowerCase();
+      rows = rows.filter((r: Record<string, any>) =>
+        Object.entries(r)
+          .filter(([k]) => k !== 'id')
+          .some(([, val]) => extractText(val).toLowerCase().includes(s))
+      );
+    }
+
+    const total = rows.length;
+    const pagedRows = rows.slice(skip, skip + limit);
+
+    return {
+      success: true,
+      formId: form.id,
+      formTitle: form.tujuan,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      rows: pagedRows,
     };
   }
 

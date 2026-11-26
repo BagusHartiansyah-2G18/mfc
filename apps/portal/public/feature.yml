@@ -26,6 +26,12 @@ menus:
         icon: layers
         order: 20
         enabled: true
+      - id: cake-admin
+        label: Admin Cake
+        path: /cake/admin
+        icon: settings
+        order: 35
+        enabled: true
       - id: user-management
         label: Manajemen Pengguna
         path: /user-management

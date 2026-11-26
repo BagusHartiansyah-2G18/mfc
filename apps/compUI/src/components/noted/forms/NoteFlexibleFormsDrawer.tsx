@@ -61,7 +61,7 @@ export function NoteFlexibleFormsDrawer({
     try {
       setIsLoading(true);
       setError(null);
-      const res = await authFetch(`${apiBaseUrl}/notes/${note.kdJudul}/forms`);
+      const res = await authFetch(`${apiBaseUrl}/notes/${encodeURIComponent(note.kdJudul)}/forms`);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setForms(json.data);
@@ -86,7 +86,7 @@ export function NoteFlexibleFormsDrawer({
     if (!note?.kdJudul) return;
 
     try {
-      await authFetch(`${apiBaseUrl}/notes/${note.kdJudul}/forms/${formId}`, {
+      await authFetch(`${apiBaseUrl}/notes/${encodeURIComponent(note.kdJudul)}/forms/${encodeURIComponent(formId)}`, {
         method: 'DELETE',
       });
       fetchForms();

@@ -41,6 +41,9 @@
     },
     {
       "path": "./apps/api-noted"
+    },
+    {
+      "path": "./apps/cake"
     }
   ]
 }

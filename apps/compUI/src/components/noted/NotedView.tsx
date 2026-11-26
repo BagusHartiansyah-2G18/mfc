@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   RefreshCw,
@@ -276,9 +276,35 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab, showI
       if (params.get('panel') === 'friend') setIsFriendsModalOpen(true);
       if (params.get('tab') === 'publikasi') setMainTab('PUBLIC_CATALOG');
       const kd = params.get('kdJudul') || params.get('note');
-      if (kd) localStorage.setItem('noted_active_kdJudul', kd);
+      if (kd) {
+        localStorage.setItem('noted_active_kdJudul', kd);
+        (async () => {
+          try {
+            setIsLoading(true);
+            setError(null);
+            const res = await authFetch(
+              `${baseUrl}/notes/sub?kdJudul=${encodeURIComponent(kd)}`
+            );
+            if (!res.ok) {
+              const payload = await res.json().catch(() => null);
+              throw new Error(payload?.message || `Catatan #${kd} tidak ditemukan.`);
+            }
+            const data: { data?: NoteSubResponse } & NoteSubResponse = await res.json();
+            const payload = data.data || data;
+            if (payload.current) {
+              setSubChain(payload.induk || []);
+              setSubNotes(payload.sub || []);
+              setSelectedParent(payload.current);
+            }
+          } catch (err) {
+            setError((err as Error).message || `Gagal memuat catatan #${kd}.`);
+          } finally {
+            setIsLoading(false);
+          }
+        })();
+      }
     } catch { /* ignore */ }
-  }, []);
+  }, [baseUrl]);
 
   // Navigation: Go back to Root
   const handleGoRoot = () => {

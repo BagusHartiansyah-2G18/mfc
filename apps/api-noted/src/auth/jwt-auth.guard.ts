@@ -126,14 +126,26 @@ export class JwtAuthGuard implements CanActivate {
         throw new ForbiddenException('API Key ini hanya memiliki izin baca (Read-Only).');
       }
 
-      req.user = {
-        id: keyRecord.targetUserId,
-        email: keyRecord.targetUserEmail,
-        role: 'API_CLIENT',
-        kdMember: Buffer.from(keyRecord.targetUserId).toString('base64'),
-        apiKeyFormId: keyRecord.formId,
-        apiKeyScopes: scopes,
-      };
+      // Jika ada Bearer JWT session yang valid, gunakan identitas user dari session tersebut
+      // dan jadikan API Key sebagai izin akses form (apiKeyFormId & apiKeyScopes).
+      const bearerToken =
+        authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : '';
+      const sessionUser = bearerToken ? this.verifyToken(bearerToken) : null;
+
+      req.user = sessionUser
+        ? {
+            ...sessionUser,
+            apiKeyFormId: keyRecord.formId,
+            apiKeyScopes: scopes,
+          }
+        : {
+            id: keyRecord.targetUserId,
+            email: keyRecord.targetUserEmail,
+            role: 'API_CLIENT',
+            kdMember: Buffer.from(keyRecord.targetUserId).toString('base64'),
+            apiKeyFormId: keyRecord.formId,
+            apiKeyScopes: scopes,
+          };
 
       this.prisma.formApiKey
         .update({

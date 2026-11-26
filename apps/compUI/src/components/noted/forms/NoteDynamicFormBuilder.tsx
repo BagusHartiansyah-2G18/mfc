@@ -458,8 +458,8 @@ export function NoteDynamicFormBuilder({
       setError(null);
 
       const url = editingForm
-        ? `${apiBaseUrl}/notes/${kdJudul}/forms/${editingForm.id}`
-        : `${apiBaseUrl}/notes/${kdJudul}/forms`;
+        ? `${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(editingForm.id)}`
+        : `${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms`;
       const method = editingForm ? 'PUT' : 'POST';
 
       const payload = {

@@ -239,6 +239,14 @@ export class PublicFormsController {
     return await this.formsService.getPublicFormBySlug(shareSlug);
   }
 
+  @Get(':shareSlug/data')
+  async getPublicFormData(
+    @Param('shareSlug') shareSlug: string,
+    @Query() query: QueryFormDataDto
+  ) {
+    return await this.formsService.getPublicFormDataBySlug(shareSlug, query);
+  }
+
   @Post(':shareSlug/upload')
   async uploadPublicFormFile(
     @Param('shareSlug') shareSlug: string,

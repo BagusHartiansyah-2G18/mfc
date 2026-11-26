@@ -10,8 +10,8 @@ import { SharingService } from './sharing.service';
 
 @Module({
   controllers: [
-    NotesController,
     FormsCatalogController,
+    NotesController,
     FlexibleFormsController,
     PublicFormsController,
     FriendsController,

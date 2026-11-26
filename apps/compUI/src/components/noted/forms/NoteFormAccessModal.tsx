@@ -157,7 +157,7 @@ export function NoteFormAccessModal({
         rules: Object.values(selectedRules),
       };
 
-      const res = await authFetch(`${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}/access`, {
+      const res = await authFetch(`${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}/access`, {
         method: 'PUT',
         body: JSON.stringify(payload),
       });
@@ -169,7 +169,7 @@ export function NoteFormAccessModal({
 
       // 2. Simpan isLocked & allowSelfEdit
       if (form.isLocked !== isLocked || form.allowSelfEdit !== allowSelfEdit) {
-        await authFetch(`${apiBaseUrl}/notes/${kdJudul}/forms/${form.id}`, {
+        await authFetch(`${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}`, {
           method: 'PUT',
           body: JSON.stringify({ isLocked, allowSelfEdit }),
         });

@@ -53,6 +53,7 @@ export default defineConfig({
           path.resolve(import.meta.dirname, '../../packages'),
           path.resolve(import.meta.dirname, '../../apps/compUI/src'),
           path.resolve(import.meta.dirname, '../../apps/userMgmt/src'),
+          path.resolve(import.meta.dirname, '../../apps/cake/src'),
         ];
         server.watcher.add(workspaceRoots);
         server.watcher.on('change', (file) => {
@@ -60,8 +61,10 @@ export default defineConfig({
             file.includes('packages') ||
             file.includes('apps/compUI') ||
             file.includes('apps/userMgmt') ||
+            file.includes('apps/cake') ||
             file.includes('apps\\compUI') ||
-            file.includes('apps\\userMgmt')
+            file.includes('apps\\userMgmt') ||
+            file.includes('apps\\cake')
           ) {
             server.ws.send({ type: 'full-reload' });
           }

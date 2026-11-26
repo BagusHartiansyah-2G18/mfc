@@ -60,6 +60,15 @@ export class NotesController {
     return await this.notesService.getMetrics(req.user!);
   }
 
+  @Get(':kdJudul')
+  @UseGuards(JwtAuthGuard)
+  async getNoteDetail(
+    @Param('kdJudul') kdJudul: string,
+    @Req() req: RequestWithUser
+  ) {
+    return await this.notesService.getSubNotes({ kdJudul }, req.user!);
+  }
+
   @Post('add')
   @UseGuards(JwtAuthGuard)
   async createNote(@Body() dto: CreateNoteDto, @Req() req: RequestWithUser) {
