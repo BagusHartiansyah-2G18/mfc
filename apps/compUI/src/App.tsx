@@ -8,8 +8,14 @@ import {
   type FeatureMenu,
   TabNav,
   type TabNavItem,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
 } from '@org/ui';
-import { LayoutDashboard, Shapes, FormInput, Table2 } from 'lucide-react';
+import { useAuth } from '@org/auth';
+import { LayoutDashboard, Shapes, FormInput, Table2, Lock } from 'lucide-react';
 import { OverviewPage } from './pages/OverviewPage';
 import { WidgetsPage } from './pages/WidgetsPage';
 import { FormsPage } from './pages/FormsPage';
@@ -24,6 +30,7 @@ export function App({ basePath = '/compUI' }: CompUIAppProps) {
   const prefix = basePath ? basePath.replace(/\/$/, '') : '';
   const location = useLocation();
   const navigate = useNavigate();
+  const { session, isDevBypass } = useAuth();
 
   // Menu untuk mode Standalone Host (port 4201)
   const standaloneMenu: FeatureMenu = useMemo(
@@ -99,9 +106,39 @@ export function App({ basePath = '/compUI' }: CompUIAppProps) {
     </div>
   );
 
-  // Jika dipanggil dari Portal Host (basePath ada), Portal sudah membungkus dengan AppShell/DashShell
+  // Jika dipanggil dari Portal Host (basePath ada), Portal sudah membungkus dengan AppShell/DashShell + RouteGuard
   if (basePath) {
     return content;
+  }
+
+  const isAuthenticated = isDevBypass || Boolean(session && session.expiresAt > Date.now());
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+        <Card className="max-w-md w-full border-border/80 shadow-lg">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-2">
+              <Lock className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-lg font-bold">Verifikasi Akses Component UI</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Silakan login melalui Portal Utama untuk mengakses workspace Component UI.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <Button
+              type="button"
+              onClick={() => {
+                window.location.href = `http://localhost:4200/login?redirect=${encodeURIComponent('/compUI')}`;
+              }}
+              className="w-full h-9 text-xs font-semibold cursor-pointer"
+            >
+              Login via Portal Utama (:4200)
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // Jika berjalan standalone, bungkus dengan DashShell dan Footer terstandar

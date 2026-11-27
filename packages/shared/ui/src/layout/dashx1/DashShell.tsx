@@ -24,7 +24,7 @@ export const DashShellMobileHeader = React.forwardRef<HTMLDivElement, DashShellM
       <div
         ref={ref}
         className={cn(
-          "flex items-center justify-between border-b bg-card px-4 py-2.5 md:hidden",
+          "flex items-center justify-between border-b bg-card px-4 py-2.5 md:hidden print:hidden",
           className
         )}
         {...props}
@@ -127,7 +127,7 @@ export const DashShell = React.forwardRef<HTMLDivElement, DashShellProps>(
             />
 
             {/* Desktop Sidebar Slot */}
-            <div className="hidden shrink-0 md:block">
+            <div className="hidden shrink-0 md:block print:hidden">
               {sidebar ? (
                 sidebar
               ) : menu ? (

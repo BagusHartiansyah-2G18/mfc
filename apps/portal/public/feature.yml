@@ -38,6 +38,12 @@ menus:
         icon: settings
         order: 35
         enabled: true
+      - id: profile-admin
+        label: Admin Profile (CV)
+        path: /profile/admin
+        icon: settings
+        order: 36
+        enabled: true
       - id: user-management
         label: Manajemen Pengguna
         path: /user-management

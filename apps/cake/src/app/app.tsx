@@ -227,7 +227,7 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
   const [faqCategory, setFaqCategory] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState('');
 
-  const hasSession = Boolean(authStore.getToken() && authStore.getUser());
+  const hasSession = Boolean(authStore.getToken() && authStore.getUser()) && authStore.can('view', 'cake');
 
   useEffect(() => {
     if (initialPage) {

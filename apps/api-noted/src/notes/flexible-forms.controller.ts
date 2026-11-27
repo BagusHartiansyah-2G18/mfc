@@ -26,32 +26,41 @@ import {
   QueryDatasetDto,
   CreateFormApiKeyDto,
 } from './dto/flexible-form.dto';
-import { JwtAuthGuard, RequestWithUser, extractUserFromAuthHeader, verifyApiKeyForRequest } from '../auth/jwt-auth.guard';
+import {
+  JwtAuthGuard,
+  PermissionsGuard,
+  RequirePermissions,
+  RequestWithUser,
+  extractUserFromAuthHeader,
+  verifyApiKeyForRequest,
+} from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('notes/forms')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class FormsCatalogController {
   constructor(private readonly formsService: FlexibleFormsService) {}
 
   @Get('catalog')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:view')
   async getCatalog(@Query() query: QueryFormCatalogDto, @Req() req: RequestWithUser) {
     return await this.formsService.getFormsCatalog(req.user!, query);
   }
 
   @Get('dataset')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:view')
   async getDataset(@Query() query: QueryDatasetDto, @Req() req: RequestWithUser) {
     return await this.formsService.getDatasetMetadata(req.user!, query);
   }
 }
 
 @Controller('notes/:kdJudul/forms')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class FlexibleFormsController {
   constructor(private readonly formsService: FlexibleFormsService) {}
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:view')
   async getForms(
     @Param('kdJudul') kdJudul: string,
     @Query() query: QueryFormDto,
@@ -63,7 +72,7 @@ export class FlexibleFormsController {
   // Upload lampiran form (terpisah): simpan berkas ke disk, balikkan URL + metadata.
   // Klien hanya menyimpan URL tersebut pada jawaban form (answers).
   @Post(':formId/upload')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:create')
   async uploadFormFile(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
@@ -75,7 +84,7 @@ export class FlexibleFormsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:create')
   async createForm(
     @Param('kdJudul') kdJudul: string,
     @Body() dto: CreateDataFormDto,
@@ -85,7 +94,7 @@ export class FlexibleFormsController {
   }
 
   @Get(':formId')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:view')
   async getFormDetail(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
@@ -95,7 +104,7 @@ export class FlexibleFormsController {
   }
 
   @Put(':formId')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:edit')
   async updateForm(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
@@ -106,7 +115,7 @@ export class FlexibleFormsController {
   }
 
   @Delete(':formId')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:delete')
   async deleteForm(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
@@ -116,7 +125,7 @@ export class FlexibleFormsController {
   }
 
   @Put(':formId/access')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:edit')
   async updateFormAccess(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
@@ -128,7 +137,7 @@ export class FlexibleFormsController {
 
   // Dynamic Flat Projection API
   @Get(':formId/data')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:view')
   async getFormDataFlat(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
@@ -139,7 +148,7 @@ export class FlexibleFormsController {
   }
 
   @Post(':formId/values')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:create')
   async submitFormValue(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
@@ -151,7 +160,7 @@ export class FlexibleFormsController {
   }
 
   @Put(':formId/values/:valueId')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:edit')
   async updateFormValue(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,
@@ -163,7 +172,7 @@ export class FlexibleFormsController {
   }
 
   @Delete(':formId/values/:valueId')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted_forms:delete')
   async deleteFormValue(
     @Param('kdJudul') kdJudul: string,
     @Param('formId') formId: string,

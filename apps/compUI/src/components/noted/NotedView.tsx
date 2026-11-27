@@ -55,6 +55,9 @@ const PAGE_SIZE = 10;
 
 export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab, showInternalTabs = true }: NotedViewProps) {
   const { session, isDevBypass } = useAuth();
+  const canCreateNote = isDevBypass || authStore.can('create', 'noted');
+  const canEditNote = isDevBypass || authStore.can('edit', 'noted');
+  const canDeleteNote = isDevBypass || authStore.can('delete', 'noted');
 
   const baseUrl = (
     apiBaseUrl ||
@@ -667,18 +670,20 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab, showI
             </Button>
           )}
 
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => {
-              setEditingNote(null);
-              setIsModalOpen(true);
-            }}
-            className="text-xs font-bold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>{selectedParent ? 'Tambah Sub-Catatan' : 'Tambah Catatan Induk'}</span>
-          </Button>
+          {canCreateNote && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                setEditingNote(null);
+                setIsModalOpen(true);
+              }}
+              className="text-xs font-bold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>{selectedParent ? 'Tambah Sub-Catatan' : 'Tambah Catatan Induk'}</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -858,11 +863,11 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab, showI
           {/* Sub-Notes Table */}
           <NoteTreeTable
             subNotes={subNotes}
-            onEdit={(note) => {
+            onEdit={canEditNote ? (note) => {
               setEditingNote(note);
               setIsModalOpen(true);
-            }}
-            onDelete={handleDeleteNote}
+            } : undefined}
+            onDelete={canDeleteNote ? handleDeleteNote : undefined}
             onEnterSub={fetchSubNotes}
             onView={handleOpenReader}
             onQuickStatusChange={handleQuickStatusChange}
@@ -1089,11 +1094,11 @@ export function NotedView({ apiBaseUrl, onNavigate, initialTab, activeTab, showI
                       note={note}
                       currentUserId={session?.id}
                       onView={handleOpenReader}
-                      onEdit={(n) => {
+                      onEdit={canEditNote ? (n) => {
                         setEditingNote(n);
                         setIsModalOpen(true);
-                      }}
-                      onDelete={handleDeleteNote}
+                      } : undefined}
+                      onDelete={canDeleteNote ? handleDeleteNote : undefined}
                       onEnterSub={fetchSubNotes}
                       onManageMembers={handleOpenMembersModal}
                       onManageMedia={handleOpenMediaModal}

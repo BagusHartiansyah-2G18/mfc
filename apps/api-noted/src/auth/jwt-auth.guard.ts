@@ -5,7 +5,9 @@ import {
   UnauthorizedException,
   ForbiddenException,
   Optional,
+  SetMetadata,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import * as crypto from 'node:crypto';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,8 +17,18 @@ export interface AuthenticatedUser {
   email: string;
   role: string;
   kdMember: string;
+  permissions?: string[];
   apiKeyFormId?: string;
   apiKeyScopes?: string[];
+}
+
+export const PERMISSIONS_KEY = 'required_permissions';
+export const RequirePermissions = (...permissions: string[]) =>
+  SetMetadata(PERMISSIONS_KEY, permissions);
+
+const ADMIN_ROLES = new Set(['super administrator', 'administrator', 'admin']);
+function isAdminRole(role?: string): boolean {
+  return Boolean(role && ADMIN_ROLES.has(role.trim().toLowerCase()));
 }
 
 export interface RequestWithUser extends Request {
@@ -141,6 +153,7 @@ export function extractUserFromAuthHeader(authHeader?: string): AuthenticatedUse
       email: payload.email || '',
       role: payload.role || 'User',
       kdMember: Buffer.from(payload.id).toString('base64'),
+      permissions: Array.isArray(payload.permissions) ? payload.permissions : undefined,
     };
   } catch {
     return null;
@@ -242,9 +255,42 @@ export class JwtAuthGuard implements CanActivate {
         email: payload.email || '',
         role: payload.role || 'User',
         kdMember: Buffer.from(payload.id).toString('base64'),
+        permissions: Array.isArray(payload.permissions) ? payload.permissions : undefined,
       };
     } catch {
       return null;
     }
+  }
+}
+
+@Injectable()
+export class PermissionsGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const required = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!required || required.length === 0) return true;
+
+    const req = context.switchToHttp().getRequest<RequestWithUser>();
+    const user = req.user;
+    if (!user) {
+      throw new UnauthorizedException('Autentikasi diperlukan.');
+    }
+    if (isAdminRole(user.role) || user.role === 'API_CLIENT' || user.permissions?.includes('*:*')) {
+      return true;
+    }
+    if (user.permissions === undefined) {
+      return true;
+    }
+    const allowed = required.every((p) => user.permissions!.includes(p));
+    if (!allowed) {
+      throw new ForbiddenException(
+        `Akses ditolak. Diperlukan izin: ${required.join(', ')}.`
+      );
+    }
+    return true;
   }
 }

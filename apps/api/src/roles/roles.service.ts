@@ -7,7 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoleDto, PermissionMatrixDto } from './dto/role.dto';
 
-const DEFAULT_MODULES = ['users', 'roles', 'projects', 'billing', 'audit_logs', 'settings'];
+const DEFAULT_MODULES = ['users', 'roles', 'projects', 'noted', 'noted_forms', 'cake', 'profile', 'billing', 'audit_logs', 'settings'];
 const DEFAULT_ACTIONS = ['view', 'create', 'edit', 'delete'];
 
 @Injectable()

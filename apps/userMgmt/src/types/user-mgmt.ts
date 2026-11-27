@@ -46,6 +46,10 @@ export type PermissionModule =
   | 'users'
   | 'roles'
   | 'projects'
+  | 'noted'
+  | 'noted_forms'
+  | 'cake'
+  | 'profile'
   | 'billing'
   | 'audit_logs'
   | 'settings'
@@ -86,6 +90,30 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
     label: 'Proyek & Delivery',
     description: 'Akses ke workspace client, sprint, dan repositori proyek.',
     iconName: 'Briefcase',
+  },
+  {
+    key: 'noted',
+    label: 'MFC Noted & Catatan',
+    description: 'Akses catatan saya, dibagikan ke saya, dokumen, dan kelola rekan.',
+    iconName: 'FileText',
+  },
+  {
+    key: 'noted_forms',
+    label: 'Form Fleksibel & Dataset',
+    description: 'Buat form, lihat rekap respon, ekspor dataset, dan kelola API Key.',
+    iconName: 'Briefcase',
+  },
+  {
+    key: 'cake',
+    label: 'Cake Marketing & Admin',
+    description: 'Kelola katalog produk, kategori, promo, dan analitik toko kue.',
+    iconName: 'Briefcase',
+  },
+  {
+    key: 'profile',
+    label: 'Profile CV & Admin',
+    description: 'Kelola konten CV, pengalaman, proyek, dan halaman admin profil.',
+    iconName: 'Users',
   },
   {
     key: 'billing',

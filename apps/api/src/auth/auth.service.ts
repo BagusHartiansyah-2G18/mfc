@@ -36,7 +36,7 @@ export class AuthService {
     return raw.replace(/^["']|["']$/g, '').trim();
   }
 
-  private generateToken(payload: { id: string; email: string; role: string; exp: number }): string {
+  private generateToken(payload: { id: string; email: string; role: string; permissions?: string[]; exp: number }): string {
     const secret = this.getTokenSecret();
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
     const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -61,7 +61,7 @@ export class AuthService {
   verifyToken(
     token: string,
     isRefresh = false
-  ): { id: string; email?: string; role?: string; type?: string; exp: number } | null {
+  ): { id: string; email?: string; role?: string; permissions?: string[]; type?: string; exp: number } | null {
     try {
       const secret = isRefresh ? this.getRefreshSecret() : this.getTokenSecret();
       const parts = token.split('.');
@@ -255,10 +255,13 @@ export class AuthService {
       const refreshDurationMs = dto.rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
       const refreshExpiresAt = new Date(Date.now() + refreshDurationMs);
 
+      const permissions = user.role.permissions.map((p: any) => p.permissionId);
+
       const accessToken = this.generateToken({
         id: user.id,
         email: user.email,
         role: user.role.name,
+        permissions,
         exp: accessExpiresAt.getTime(),
       });
 
@@ -356,10 +359,13 @@ export class AuthService {
     const accessExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+    const permissions = user.role.permissions.map((p: any) => p.permissionId);
+
     const newAccessToken = this.generateToken({
       id: user.id,
       email: user.email,
       role: user.role.name,
+      permissions,
       exp: accessExpiresAt.getTime(),
     });
 

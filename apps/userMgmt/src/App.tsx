@@ -18,7 +18,8 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react';
-import { Badge, Button } from '@org/ui';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@org/ui';
+import { useAuth, isAdminRole } from '@org/auth';
 import { userMgmtStore, type BackendStatus } from './store/user-mgmt-store';
 import { UserTab } from './components/UserTab';
 import { RoleTab } from './components/RoleTab';
@@ -36,6 +37,7 @@ export function App({ basePath = '' }: UserMgmtAppProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { session, isDevBypass } = useAuth();
 
   // Selected role for permission matrix
   const roleParam = searchParams.get('role');
@@ -159,6 +161,68 @@ export function App({ basePath = '' }: UserMgmtAppProps) {
     }),
     [prefix, users.length, roles.length]
   );
+
+  const isAuthenticated = isDevBypass || Boolean(session && session.expiresAt > Date.now());
+  const hasAdminAccess = isDevBypass || isAdminRole(session?.role);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+        <Card className="max-w-md w-full border-border/80 shadow-lg">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-2">
+              <Lock className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-lg font-bold">Verifikasi Akses User Management</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Halaman ini hanya dapat diakses oleh pengguna terautentikasi dengan hak akses Administrator.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-2 flex flex-col gap-2">
+            <Button
+              type="button"
+              onClick={() => {
+                window.location.href = `http://localhost:4200/login?redirect=${encodeURIComponent('/user-management')}`;
+              }}
+              className="w-full h-9 text-xs font-semibold cursor-pointer"
+            >
+              Login via Portal Utama (:4200)
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!hasAdminAccess) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+        <Card className="max-w-md w-full border-rose-500/30 shadow-lg">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600 mb-2">
+              <Shield className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-lg font-bold">Akses Ditolak (403)</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Peran akun Anda ({session?.role || 'User'}) tidak memiliki izin untuk membuka User Management.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-2 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                window.location.href = 'http://localhost:4200/';
+              }}
+              className="h-9 text-xs font-semibold cursor-pointer"
+            >
+              Kembali ke Portal Utama
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <DashShell menu={standaloneMenu} footer={<DashFooter brand="BGS Identity & Access Management (Standalone Host)" />}>

@@ -1,0 +1,81 @@
+@import "../../../packages/shared/ui/src/styles/globals.css";
+@source "./";
+@source "../../../packages/shared/ui/src";
+
+@media print {
+  @page {
+    size: A4;
+    margin: 9mm 11mm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body,
+  #root,
+  #root > div,
+  .h-screen,
+  .overflow-hidden,
+  .overflow-y-auto,
+  main {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  aside,
+  nav,
+  header:not(.cv-print-header),
+  .md\:hidden {
+    display: none !important;
+  }
+
+  .cv-print-grid-4 {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .cv-print-grid-3 {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+  }
+
+  .cv-print-col-span-2 {
+    grid-column: span 2 / span 2 !important;
+  }
+
+  .cv-print-grid-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .cv-print-heading {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .cv-print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .cv-print-hero {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 0 6px 0 !important;
+  }
+}

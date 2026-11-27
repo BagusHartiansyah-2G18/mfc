@@ -177,6 +177,7 @@ const RemoteCakeApp = lazyProvider<{
   onNavigate?: (path: string) => void;
 }>('cake', 'CakeApp');
 const RemoteProfileApp = lazyProvider<{
+  initialPage?: 'profile' | 'admin';
   onNavigate?: (path: string) => void;
 }>('profile', 'ProfileApp');
 
@@ -214,7 +215,7 @@ function PortalHeader({ brand }: { brand: string }) {
   };
 
   return (
-    <div className="px-2 pt-2">
+    <div className="px-2 pt-2 print:hidden">
       <DashHeader className="py-2">
         <div className="flex items-center justify-between gap-4">
           <DashHeaderBrand title={brand} href="/compUI" />
@@ -415,8 +416,8 @@ function NotedRouteHandler({
     return defaultTab;
   }, [location.pathname, defaultTab]);
 
-  // Jika pengunjung belum login dan mengakses catatan spesifik (misal ?viewNote=1),
-  // sajikan langsung Halaman Mandiri Catatan Bebas Login (Mode Publik) tanpa me-redirect ke login!
+  // Jika pengunjung belum login dan mengakses catatan spesifik (misal ?viewNote=1)
+  // atau Katalog Publik (/noted/public), sajikan mode publik tanpa me-redirect ke login!
   if (!session && hasViewParam) {
     return (
       <ProviderBoundary name="compUI">
@@ -425,9 +426,30 @@ function NotedRouteHandler({
     );
   }
 
+  if (!session && activeTab === 'PUBLIC_CATALOG') {
+    return (
+      <PublicLayout brand={brandName} dashboardPath="/noted/public">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+          <ProviderBoundary name="compUI">
+            <RemoteNotedView
+              apiBaseUrl="http://localhost:3002/api"
+              initialTab="PUBLIC_CATALOG"
+              activeTab="PUBLIC_CATALOG"
+              showInternalTabs={false}
+              onNavigate={(path) => {
+                if (path === '/public') navigate('/noted/public');
+                else navigate(path.startsWith('/noted') ? path : `/noted${path}`);
+              }}
+            />
+          </ProviderBoundary>
+        </div>
+      </PublicLayout>
+    );
+  }
+
   // Jika sudah login atau akses ke root dashboard /noted:
   return (
-    <RouteGuard>
+    <RouteGuard requiredPermissions={['noted:view']}>
       {effectiveMenu ? (
         <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
           <ProviderBoundary name="compUI">
@@ -484,7 +506,13 @@ function NotedWorkspaceRoute({
   };
 
   return (
-    <RouteGuard>
+    <RouteGuard
+      requiredPermissions={
+        kind === 'forms' || kind === 'responses' || kind === 'forms-catalog' || kind === 'dataset'
+          ? ['noted_forms:view']
+          : ['noted:view']
+      }
+    >
       {effectiveMenu ? (
         <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
           <ProviderBoundary name="compUI">
@@ -684,7 +712,7 @@ export function App() {
       <Route
         path="/user-management/*"
         element={
-          <RouteGuard>
+          <RouteGuard allowedRoles={['Super Administrator', 'Administrator', 'Admin']}>
             {effectiveMenu ? (
               <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
                 <ProviderBoundary name="userMgmt">
@@ -758,7 +786,7 @@ export function App() {
       <Route
         path="/cake/admin"
         element={
-          <RouteGuard>
+          <RouteGuard requiredPermissions={['cake:view']}>
             {effectiveMenu ? (
               <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
                 <ProviderBoundary name="cake">
@@ -819,12 +847,34 @@ export function App() {
       />
 
       <Route
+        path="/profile/admin"
+        element={
+          <RouteGuard requiredPermissions={['profile:view']}>
+            {effectiveMenu ? (
+              <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
+                <ProviderBoundary name="profile">
+                  <RemoteProfileApp initialPage="admin" onNavigate={(path) => navigate(path)} />
+                </ProviderBoundary>
+              </AppShell>
+            ) : (
+              <div className="flex h-screen gap-4 p-4">
+                <Skeleton className="h-full w-64" />
+                <div className="flex-1 space-y-4">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              </div>
+            )}
+          </RouteGuard>
+        }
+      />
+      <Route
         path="/profile"
         element={
           effectiveMenu ? (
             <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
               <ProviderBoundary name="profile">
-                <RemoteProfileApp onNavigate={(path) => navigate(path)} />
+                <RemoteProfileApp initialPage="profile" onNavigate={(path) => navigate(path)} />
               </ProviderBoundary>
             </AppShell>
           ) : (

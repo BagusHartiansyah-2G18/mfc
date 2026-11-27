@@ -26,9 +26,15 @@ import {
   CreateChecklistDto,
   UpdateChecklistDto,
 } from './dto/note.dto';
-import { JwtAuthGuard, RequestWithUser } from '../auth/jwt-auth.guard';
+import {
+  JwtAuthGuard,
+  PermissionsGuard,
+  RequirePermissions,
+  RequestWithUser,
+} from '../auth/jwt-auth.guard';
 
 @Controller('notes')
+@UseGuards(PermissionsGuard)
 export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 
@@ -71,18 +77,21 @@ export class NotesController {
 
   @Post('add')
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted:create')
   async createNote(@Body() dto: CreateNoteDto, @Req() req: RequestWithUser) {
     return await this.notesService.createNote(dto, req.user!);
   }
 
   @Put('upd')
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted:edit')
   async updateNote(@Body() dto: UpdateNoteDto, @Req() req: RequestWithUser) {
     return await this.notesService.updateNote(dto, req.user!);
   }
 
   @Delete(':kdJudul')
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions('noted:delete')
   async deleteNote(
     @Param('kdJudul') kdJudul: string,
     @Req() req: RequestWithUser

@@ -11,14 +11,20 @@ import {
 import { SharingService } from './sharing.service';
 import { UpdateNoteSharingDto } from './dto/sharing.dto';
 import { QuerySubNoteDto } from './dto/note.dto';
-import { JwtAuthGuard, RequestWithUser } from '../auth/jwt-auth.guard';
+import {
+  JwtAuthGuard,
+  PermissionsGuard,
+  RequirePermissions,
+  RequestWithUser,
+} from '../auth/jwt-auth.guard';
 
 @Controller('sharing')
 export class SharingController {
   constructor(private readonly sharingService: SharingService) {}
 
   @Get('shared-with-me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('noted:view')
   async getSharedWithMe(@Req() req: RequestWithUser) {
     return await this.sharingService.getSharedWithMe(req.user!);
   }
@@ -44,7 +50,8 @@ export class SharingController {
   }
 
   @Put('notes/:kdJudul')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('noted:edit')
   async updateNoteSharing(
     @Param('kdJudul') kdJudul: string,
     @Body() dto: UpdateNoteSharingDto,

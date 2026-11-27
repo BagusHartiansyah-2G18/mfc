@@ -1,4 +1,4 @@
-﻿import { Component, Suspense, useState, useEffect, type ReactNode } from 'react';
+import { Component, Suspense, useState, useEffect, type ReactNode } from 'react';
 import {
   Sparkles, LayoutGrid, BarChart3, BookOpen, RefreshCw, LogOut, ExternalLink, Activity,
   AlertTriangle, FolderGit2, Lock, Database,
@@ -7,7 +7,7 @@ import {
   Button, Card, CardHeader, CardTitle, CardContent, Skeleton, DashShell, DashFooter,
   type FeatureMenu,
 } from '@org/ui';
-import { useAuth, setSession, silentRefreshToken } from '@org/auth';
+import { useAuth, setSession, silentRefreshToken, hasPermission } from '@org/auth';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { lazyProvider } from './mf';
 
@@ -229,16 +229,32 @@ export function App() {
     }
   };
 
-  // Rute publik mandiri (tanpa login): /p/:slug, /survey/:slug, /formPublic, ?shareSlug=...
+  // Rute publik mandiri (tanpa login): /p/:slug, /survey/:slug, /formPublic, /public, ?shareSlug=...
   const isPublicFormRoute =
     typeof window !== 'undefined' &&
     (window.location.pathname.startsWith('/p/') ||
       window.location.pathname.startsWith('/survey/') ||
       window.location.pathname.startsWith('/formPublic') ||
+      window.location.pathname.replace(/\/+$/, '') === '/public' ||
       new URLSearchParams(window.location.search).has('shareSlug') ||
       new URLSearchParams(window.location.search).has('slug'));
 
   if (isPublicFormRoute) {
+    if (window.location.pathname.replace(/\/+$/, '') === '/public') {
+      return (
+        <div className="max-w-7xl w-full mx-auto p-4 sm:p-6">
+          <CompUIBoundary>
+            <RemoteNotedView
+              apiBaseUrl={API_BASE}
+              onNavigate={navigate}
+              initialTab="PUBLIC_CATALOG"
+              activeTab="PUBLIC_CATALOG"
+              showInternalTabs={false}
+            />
+          </CompUIBoundary>
+        </div>
+      );
+    }
     return (
       <CompUIBoundary>
         <RemoteStandaloneQuestionnaire apiBaseUrl={API_BASE} />
@@ -293,6 +309,25 @@ export function App() {
             </CardContent>
           </Card>
         </div>
+      </div>
+    );
+  }
+
+  if (!isDevBypass && !hasPermission('noted:view')) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4 font-sans">
+        <Card className="max-w-md w-full border-rose-500/30 shadow-lg">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600 mb-2"><Lock className="h-6 w-6" /></div>
+            <CardTitle className="text-lg font-bold">Akses Ditolak (403)</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">Peran akun Anda ({session?.role || 'User'}) tidak memiliki izin <code className="font-mono">noted:view</code> dari User Management.</p>
+          </CardHeader>
+          <CardContent className="pt-2 flex justify-center gap-2">
+            <Button type="button" variant="outline" onClick={() => { window.location.href = 'http://localhost:4200/'; }} className="h-9 text-xs font-semibold cursor-pointer">
+              Kembali ke Portal Utama
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

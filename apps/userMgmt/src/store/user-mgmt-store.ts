@@ -260,7 +260,7 @@ const DEFAULT_USERS: User[] = [
 
 // Seed Matrix Generator
 function createDefaultMatrix(full: boolean, partial?: Partial<Record<PermissionModule, boolean>>): PermissionMatrix {
-  const modules: PermissionModule[] = ['users', 'roles', 'projects', 'billing', 'audit_logs', 'settings'];
+  const modules: PermissionModule[] = ['users', 'roles', 'projects', 'noted', 'noted_forms', 'cake', 'profile', 'billing', 'audit_logs', 'settings'];
   const matrix: Partial<PermissionMatrix> = {};
 
   for (const mod of modules) {
@@ -269,7 +269,7 @@ function createDefaultMatrix(full: boolean, partial?: Partial<Record<PermissionM
     } else if (partial && partial[mod]) {
       matrix[mod] = { view: true, create: true, edit: true, delete: false };
     } else {
-      matrix[mod] = { view: mod === 'projects', create: false, edit: false, delete: false };
+      matrix[mod] = { view: mod === 'projects' || mod === 'noted', create: false, edit: false, delete: false };
     }
   }
 
@@ -282,6 +282,10 @@ const DEFAULT_PERMISSIONS: Record<string, PermissionMatrix> = {
     users: { view: true, create: true, edit: true, delete: false },
     roles: { view: true, create: false, edit: false, delete: false },
     projects: { view: true, create: true, edit: true, delete: true },
+    noted: { view: true, create: true, edit: true, delete: true },
+    noted_forms: { view: true, create: true, edit: true, delete: false },
+    cake: { view: true, create: true, edit: true, delete: false },
+    profile: { view: true, create: true, edit: true, delete: false },
     billing: { view: true, create: false, edit: false, delete: false },
     audit_logs: { view: true, create: false, edit: false, delete: false },
     settings: { view: true, create: false, edit: false, delete: false },
@@ -290,6 +294,10 @@ const DEFAULT_PERMISSIONS: Record<string, PermissionMatrix> = {
     users: { view: true, create: false, edit: false, delete: false },
     roles: { view: false, create: false, edit: false, delete: false },
     projects: { view: true, create: true, edit: true, delete: false },
+    noted: { view: true, create: true, edit: true, delete: false },
+    noted_forms: { view: true, create: true, edit: true, delete: false },
+    cake: { view: false, create: false, edit: false, delete: false },
+    profile: { view: false, create: false, edit: false, delete: false },
     billing: { view: false, create: false, edit: false, delete: false },
     audit_logs: { view: false, create: false, edit: false, delete: false },
     settings: { view: false, create: false, edit: false, delete: false },
@@ -298,6 +306,10 @@ const DEFAULT_PERMISSIONS: Record<string, PermissionMatrix> = {
     users: { view: false, create: false, edit: false, delete: false },
     roles: { view: false, create: false, edit: false, delete: false },
     projects: { view: true, create: false, edit: false, delete: false },
+    noted: { view: false, create: false, edit: false, delete: false },
+    noted_forms: { view: false, create: false, edit: false, delete: false },
+    cake: { view: false, create: false, edit: false, delete: false },
+    profile: { view: false, create: false, edit: false, delete: false },
     billing: { view: true, create: false, edit: false, delete: false },
     audit_logs: { view: false, create: false, edit: false, delete: false },
     settings: { view: false, create: false, edit: false, delete: false },
@@ -351,7 +363,12 @@ class UserManagementStore {
     // Filter out any soft-deleted records from storage
     this.users = storedUsers.filter((u) => !u.deletedAt);
     this.roles = loadFromStorage<Role[]>(STORAGE_ROLES_KEY, DEFAULT_ROLES);
-    this.modules = loadFromStorage<ModuleDefinition[]>(STORAGE_MODULES_KEY, SYSTEM_MODULES);
+    const storedModules = loadFromStorage<ModuleDefinition[]>(STORAGE_MODULES_KEY, SYSTEM_MODULES);
+    const existingKeys = new Set(storedModules.map((m) => m.key));
+    this.modules = [
+      ...storedModules,
+      ...SYSTEM_MODULES.filter((sysMod) => !existingKeys.has(sysMod.key)),
+    ];
     this.permissions = loadFromStorage<Record<string, PermissionMatrix>>(
       STORAGE_PERMS_KEY,
       DEFAULT_PERMISSIONS
