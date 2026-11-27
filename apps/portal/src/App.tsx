@@ -176,6 +176,9 @@ const RemoteCakeApp = lazyProvider<{
   initialPage?: 'catalog' | 'custom' | 'about' | 'analytics' | 'admin';
   onNavigate?: (path: string) => void;
 }>('cake', 'CakeApp');
+const RemoteProfileApp = lazyProvider<{
+  onNavigate?: (path: string) => void;
+}>('profile', 'ProfileApp');
 
 function PortalHeader({ brand }: { brand: string }) {
   const navigate = useNavigate();
@@ -775,12 +778,53 @@ export function App() {
         }
       />
       <Route
+        path="/cake/produk/:slug"
+        element={
+          effectiveMenu ? (
+            <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
+              <ProviderBoundary name="cake">
+                <RemoteCakeApp initialPage="catalog" onNavigate={(path) => navigate(path)} />
+              </ProviderBoundary>
+            </AppShell>
+          ) : (
+            <div className="flex h-screen gap-4 p-4">
+              <Skeleton className="h-full w-64" />
+              <div className="flex-1 space-y-4">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-64 w-full" />
+              </div>
+            </div>
+          )
+        }
+      />
+      <Route
         path="/cake"
         element={
           effectiveMenu ? (
             <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
               <ProviderBoundary name="cake">
                 <RemoteCakeApp initialPage="catalog" onNavigate={(path) => navigate(path)} />
+              </ProviderBoundary>
+            </AppShell>
+          ) : (
+            <div className="flex h-screen gap-4 p-4">
+              <Skeleton className="h-full w-64" />
+              <div className="flex-1 space-y-4">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-64 w-full" />
+              </div>
+            </div>
+          )
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          effectiveMenu ? (
+            <AppShell menu={effectiveMenu} hoverOpen={true} header={<PortalHeader brand={brandName} />}>
+              <ProviderBoundary name="profile">
+                <RemoteProfileApp onNavigate={(path) => navigate(path)} />
               </ProviderBoundary>
             </AppShell>
           ) : (

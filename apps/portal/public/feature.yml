@@ -12,6 +12,12 @@ menus:
         icon: home
         order: 5
         enabled: true
+      - id: profile-site
+        label: Profile CV (Bagus Hartiansyah)
+        path: /profile
+        icon: user
+        order: 7
+        enabled: true
   - section: Feature
     items:
       - id: comp-ui

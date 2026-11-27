@@ -171,12 +171,36 @@ services:
     depends_on:
       - api-noted
 
+  profile:
+    build:
+      context: .
+      dockerfile: apps/profile/Dockerfile
+    container_name: profile
+    working_dir: /app/apps/profile
+    env_file:
+      - .env
+    ports:
+      - "${PORT_PROFILE:-4205}:${PORT_PROFILE:-4205}"
+    volumes:
+      - .:/app
+      - node_modules-profile:/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      PORT_PROFILE: "${PORT_PROFILE:-4205}"
+      VITE_API_NOTED_URL: "${VITE_API_NOTED_URL:-http://localhost:3002/api}"
+    restart: unless-stopped
+    command: sh -c "([ -d /app/node_modules/@org/ui ] && [ -d /app/node_modules/@org/auth ] || npm install --ignore-scripts --no-audit --no-fund --prefix /app) && npx vite --config vite.config.mts --host 0.0.0.0 --port ${PORT_PROFILE:-4205} --strictPort"
+    depends_on:
+      - api-noted
+
 volumes:
   node_modules-portal:
   node_modules-compui:
   node_modules-usermgmt:
   node_modules-noted:
   node_modules-cake:
+  node_modules-profile:
   node_modules-api:
   node_modules-api-local:
   node_modules-api-noted:

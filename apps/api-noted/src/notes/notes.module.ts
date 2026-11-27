@@ -7,6 +7,7 @@ import { FriendsController } from './friends.controller';
 import { FriendsService } from './friends.service';
 import { SharingController } from './sharing.controller';
 import { SharingService } from './sharing.service';
+import { CakeShareController } from './cake-share.controller';
 
 @Module({
   controllers: [
@@ -16,6 +17,7 @@ import { SharingService } from './sharing.service';
     PublicFormsController,
     FriendsController,
     SharingController,
+    CakeShareController,
   ],
   providers: [
     NotesService,

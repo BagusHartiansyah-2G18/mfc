@@ -1084,12 +1084,39 @@ export class FlexibleFormsService {
   // -------------------------------------------------------------
   // Public Consumer Endpoints (Multi-Host & Bebas Login)
   // -------------------------------------------------------------
-  async getPublicFormBySlug(shareSlug: string) {
+  private canAccessSlugForm(
+    form: any,
+    requester?: AuthenticatedUser | null,
+    mode: 'read' | 'submit' = 'read'
+  ): boolean {
+    if (!form) return false;
+    if (form.sharingMode === 'PUBLIC') return true;
+    if (!requester) return false;
+    if (requester.role === 'Super Administrator' || requester.role === 'Administrator') return true;
+    if (requester.apiKeyFormId === form.id) {
+      if (mode === 'submit') {
+        return Boolean(requester.apiKeyScopes?.includes('responses:submit'));
+      }
+      return true;
+    }
+    if (form.kdMember === requester.kdMember) return true;
+    if (form.sharingMode === 'KHUSUS') {
+      return (form.accessRules || []).some((r: any) => {
+        const isMatched = r.friendUserId === requester.id || r.friendEmail === requester.email;
+        if (!isMatched) return false;
+        return mode === 'submit' ? r.canSubmit : r.canViewAllResponses || r.canSubmit;
+      });
+    }
+    return false;
+  }
+
+  async getPublicFormBySlug(shareSlug: string, requester?: AuthenticatedUser | null) {
     const form = await this.prisma.dataForm.findUnique({
       where: { shareSlug },
       select: {
         id: true,
-        // ZERO-LEAKAGE: Jangan ekspos kdNote atau kdMember internal catatan
+        kdMember: true,
+        // ZERO-LEAKAGE: Jangan ekspos kdNote atau kdMember internal catatan di response
         tujuan: true,
         keterangan: true,
         schemaVersion: true,
@@ -1102,14 +1129,15 @@ export class FlexibleFormsService {
         maxResponses: true,
         shareSlug: true,
         createdAt: true,
+        accessRules: true,
         _count: {
           select: { values: true },
         },
       },
     });
 
-    if (!form || form.sharingMode !== 'PUBLIC') {
-      throw new NotFoundException('Formulir publik tidak ditemukan atau dinonaktifkan.');
+    if (!form || !this.canAccessSlugForm(form, requester, 'read')) {
+      throw new NotFoundException('Formulir tidak ditemukan atau memerlukan izin akses / API Key.');
     }
 
     const isExpired = form.closeAt ? new Date(form.closeAt) < new Date() : false;
@@ -1144,19 +1172,21 @@ export class FlexibleFormsService {
   async submitPublicFormBySlug(
     shareSlug: string,
     dto: SubmitFormValueDto,
-    originHost = 'public-client'
+    originHost = 'public-client',
+    requester?: AuthenticatedUser | null
   ) {
     const form = await this.prisma.dataForm.findUnique({
       where: { shareSlug },
       include: {
+        accessRules: true,
         _count: {
           select: { values: true },
         },
       },
     });
 
-    if (!form || form.sharingMode !== 'PUBLIC') {
-      throw new NotFoundException('Formulir publik tidak ditemukan atau dinonaktifkan.');
+    if (!form || !this.canAccessSlugForm(form, requester, 'submit')) {
+      throw new NotFoundException('Formulir tidak ditemukan atau memerlukan izin akses / API Key.');
     }
 
     if (form.isLocked) {
@@ -1201,13 +1231,18 @@ export class FlexibleFormsService {
     };
   }
 
-  // 8a-read. Ambil data respon publik (read-only tanpa PII) untuk form sharingMode = PUBLIC
-  async getPublicFormDataBySlug(shareSlug: string, query: any = {}) {
+  // 8a-read. Ambil data respon (mendukung PUBLIC maupun PRIVATE/KHUSUS dengan X-API-Key / JWT pemilik)
+  async getPublicFormDataBySlug(
+    shareSlug: string,
+    query: any = {},
+    requester?: AuthenticatedUser | null
+  ) {
     const form = await this.prisma.dataForm.findFirst({
       where: { shareSlug },
+      include: { accessRules: true },
     });
-    if (!form || form.sharingMode !== 'PUBLIC') {
-      throw new NotFoundException('Formulir publik tidak ditemukan atau tidak bersifat publik.');
+    if (!form || !this.canAccessSlugForm(form, requester, 'read')) {
+      throw new NotFoundException('Formulir tidak ditemukan atau memerlukan izin akses / API Key.');
     }
 
     const { page, limit, skip } = this.parsePagination(query, 100, 25);
@@ -1329,14 +1364,16 @@ export class FlexibleFormsService {
   async savePublicFormFile(
     shareSlug: string,
     dto: UploadFormFileDto,
-    origin: string
+    origin: string,
+    requester?: AuthenticatedUser | null
   ) {
     // Cari form berdasarkan shareSlug
     const form = await this.prisma.dataForm.findFirst({
       where: { shareSlug },
+      include: { accessRules: true },
     });
-    if (!form) {
-      throw new NotFoundException('Formulir publik tidak ditemukan.');
+    if (!form || !this.canAccessSlugForm(form, requester, 'submit')) {
+      throw new NotFoundException('Formulir tidak ditemukan atau memerlukan izin akses / API Key.');
     }
 
     // Validasi tipe file dan ekstensi

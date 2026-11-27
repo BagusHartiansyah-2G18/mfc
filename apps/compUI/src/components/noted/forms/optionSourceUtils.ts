@@ -1,3 +1,4 @@
+import { authFetch } from '@org/auth';
 import type { FormFieldOptionSource } from '../types';
 
 export function extractArrayFromPayload(
@@ -48,7 +49,7 @@ export async function fetchOptionsFromApi(
     headers['X-API-Key'] = source.apiKey.trim();
   }
 
-  const res = await fetch(url, {
+  const res = await authFetch(url, {
     method: 'GET',
     headers,
     signal,

@@ -32,6 +32,7 @@ import {
   RefreshCw,
   Search,
   Settings,
+  Share2,
   ShieldCheck,
   Sparkles,
   Star,
@@ -41,6 +42,7 @@ import {
   Truck,
 } from 'lucide-react';
 import {
+  API_NOTED_BASE,
   fetchAuthenticatedFormRows,
   fetchCakeFormRows,
   fetchPublicFormPage,
@@ -58,6 +60,7 @@ import type {
   CakeStoreSettings,
 } from '../types/cake';
 import { ProductDetailDialog } from '../components/ProductDetailDialog';
+import { ProductDetailPage } from '../components/ProductDetailPage';
 import { CustomCakeSection } from '../components/CustomCakeSection';
 import { ReviewModal } from '../components/ReviewModal';
 import { AdminCakeHub } from '../components/AdminCakeHub';
@@ -94,6 +97,10 @@ function ProductCardMedia({
 }) {
   const [failed, setFailed] = useState(false);
 
+  useEffect(() => {
+    setFailed(false);
+  }, [imageUrl]);
+
   return (
     <div className="relative h-40 w-full overflow-hidden rounded-t-xl border-b border-border/60 bg-gradient-to-br from-amber-500/15 via-primary/10 to-rose-500/15 flex items-center justify-center">
       {imageUrl && !failed ? (
@@ -101,6 +108,7 @@ function ProductCardMedia({
           src={imageUrl}
           alt={product.nama_produk}
           loading="lazy"
+          referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
@@ -191,6 +199,7 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
   const [catalogProducts, setCatalogProducts] = useState<CakeProduct[]>([]);
   const [catalogTotal, setCatalogTotal] = useState(0);
   const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogLimit, setCatalogLimit] = useState(10);
   const [catalogTotalPages, setCatalogTotalPages] = useState(1);
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
 
@@ -207,6 +216,11 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [sortBy, setSortBy] = useState<'default' | 'price_asc' | 'price_desc'>('default');
   const [activeProduct, setActiveProduct] = useState<CakeProduct | null>(null);
+  const [routeProductSlug, setRouteProductSlug] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const match = window.location.pathname.match(/\/cake\/produk\/([^/?#]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  });
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // FAQ & Lead filters
@@ -222,12 +236,83 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
   }, [initialPage, hasSession]);
 
   useEffect(() => {
-    if (store?.store_name) {
-      document.title = store.motto
-        ? `${store.store_name} — ${store.motto}`
-        : `${store.store_name} — Katalog Kue`;
+    const syncFromLocation = () => {
+      const match = window.location.pathname.match(/\/cake\/produk\/([^/?#]+)/);
+      setRouteProductSlug(match ? decodeURIComponent(match[1]) : null);
+    };
+    window.addEventListener('popstate', syncFromLocation);
+    return () => window.removeEventListener('popstate', syncFromLocation);
+  }, []);
+
+  const routeProduct = useMemo(() => {
+    if (!routeProductSlug) return null;
+    const target = routeProductSlug.toLowerCase();
+    return (
+      allProducts.find(
+        (p) =>
+          (p.slug || '').toLowerCase() === target ||
+          (p.kode_produk || '').toLowerCase() === target ||
+          (p.id || '').toLowerCase() === target
+      ) || null
+    );
+  }, [routeProductSlug, allProducts]);
+
+  const openProductDetailPage = (product: CakeProduct) => {
+    const slugVal = product.slug || product.kode_produk || product.id || '';
+    if (!slugVal) {
+      setActiveProduct(product);
+      return;
     }
-  }, [store]);
+    setRouteProductSlug(slugVal);
+    try {
+      window.history.pushState(null, '', `/cake/produk/${encodeURIComponent(slugVal)}`);
+    } catch {
+      // ignore
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const closeProductDetailPage = () => {
+    setRouteProductSlug(null);
+    setActiveProduct(null);
+    try {
+      window.history.pushState(null, '', '/cake');
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    const storeName = store?.store_name || 'Ummu Hanif — Melayani Konsumen';
+    const current = routeProduct || activeProduct;
+    const title = current
+      ? `${current.nama_produk} — ${storeName}`
+      : store?.motto
+        ? `${storeName} — ${store.motto}`
+        : `${storeName} — Katalog Kue`;
+    const description = current
+      ? current.deskripsi
+      : store?.motto || 'Katalog kue premium, custom cake, brownies, dan pemesanan online.';
+
+    document.title = title;
+    const setMeta = (prop: string, content: string) => {
+      let el = document.querySelector(`meta[property="${prop}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('property', prop);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+    setMeta('og:title', title);
+    setMeta('og:description', description);
+    setMeta('og:url', window.location.href);
+    setMeta('og:type', current ? 'product' : 'website');
+    if (current) {
+      const img = getPrimaryImageUrl(current);
+      if (img) setMeta('og:image', img);
+    }
+  }, [store, routeProduct, activeProduct]);
 
   useEffect(() => {
     if (!onNavigate) {
@@ -255,7 +340,6 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
         fetchCakeFormRows<CakeCategory>('categories'),
         fetchCakeFormRows<CakeDeliveryArea>('areas'),
         fetchCakeFormRows<CakeProduct>('products'),
-        fetchCakeFormRows<CakeGalleryItem>('gallery'),
         fetchCakeFormRows<CakePromo>('promos'),
         fetchCakeFormRows<CakeReview>('reviews'),
         fetchCakeFormRows<CakeFaq>('faqs'),
@@ -270,11 +354,11 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
       setCategories(val<CakeCategory>(2).filter((c) => c.status === 'ACTIVE'));
       setAreas(val<CakeDeliveryArea>(3));
       setAllProducts(val<CakeProduct>(4));
-      setGallery(val<CakeGalleryItem>(5));
-      setPromos(val<CakePromo>(6));
-      setReviews(val<CakeReview>(7));
-      setFaqs(val<CakeFaq>(8));
-      setLeads(val<CakeLead>(9));
+      setGallery([]);
+      setPromos(val<CakePromo>(5));
+      setReviews(val<CakeReview>(6));
+      setFaqs(val<CakeFaq>(7));
+      setLeads(val<CakeLead>(8));
 
       const failedCount = results.filter((r) => r.status === 'rejected').length;
       if (failedCount === results.length) {
@@ -301,7 +385,7 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
 
       const res = await fetchPublicFormPage<CakeProduct>('products', {
         page: catalogPage,
-        limit: 9,
+        limit: catalogLimit,
         search: debouncedSearch,
         filters,
       });
@@ -322,7 +406,7 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
     } finally {
       setIsCatalogLoading(false);
     }
-  }, [catalogPage, debouncedSearch, selectedCategory, availabilityFilter, sortBy, allProducts]);
+  }, [catalogPage, catalogLimit, debouncedSearch, selectedCategory, availabilityFilter, sortBy, allProducts]);
 
   useEffect(() => {
     loadCatalogPage();
@@ -354,19 +438,40 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
   const isOpenNow = isStoreCurrentlyOpen(store?.open_time, store?.close_time);
   const waNumber = (store?.whatsapp || '6281234567890').replace(/[^0-9]/g, '');
 
-  const getPrimaryImageUrl = (kodeProduk: string) => {
+  const resolveMediaUrl = (item?: { image_file?: any; image_url?: string } | null) => {
+    if (!item) return '';
+    const fileUrl =
+      typeof item.image_file === 'string'
+        ? item.image_file
+        : item.image_file?.fileUrl || item.image_file?.url || '';
+    const raw = (fileUrl || item.image_url || '').trim();
+    if (!raw) return '';
+    return raw.startsWith('/api/') || raw.startsWith('/uploads/')
+      ? `http://localhost:3002${raw}`
+      : raw;
+  };
+
+  const getPrimaryImageUrl = (product: CakeProduct) => {
+    const inlinePhotos = (Array.isArray(product.galeri_foto) ? product.galeri_foto : [])
+      .filter((p) => Boolean(resolveMediaUrl(p)));
+    if (inlinePhotos.length > 0) {
+      const fullInline =
+        inlinePhotos.find((i) => i.jenis_foto === 'Full Product') || inlinePhotos[0];
+      return resolveMediaUrl(fullInline);
+    }
+
     const items = gallery.filter((g) => {
       const code = typeof g.produk === 'object' ? g.produk?.kode_produk : g.produk;
-      return code === kodeProduk;
+      return code === product.kode_produk;
     });
     const full = items.find((i) => i.jenis_foto === 'Full Product') || items[0];
-    return full?.image_file?.fileUrl || full?.image_file?.url || full?.image_url;
+    return resolveMediaUrl(full);
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-200 border-b border-border/80 bg-card/95 backdrop-blur" style={{ zIndex: 200 }}>
+      <header className="sticky top-0 z-200 border-b border-border/80 bg-card/95 backdrop-blur" style={{ zIndex: 5 }}>
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -419,6 +524,26 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
                 {label}
               </Button>
             ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const shareUrl = `${API_NOTED_BASE}/public/cake/share?redirect=${encodeURIComponent(
+                  window.location.origin
+                )}`;
+                window.open(
+                  `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+                  '_blank',
+                  'noopener,noreferrer'
+                );
+              }}
+              className="h-8 text-xs gap-1.5 text-[#1877F2] border-[#1877F2]/30 hover:bg-[#1877F2]/10 cursor-pointer"
+              title="Bagikan halaman toko ke Facebook"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              <span className="hidden md:inline">Share FB</span>
+            </Button>
             {!onNavigate && (
               <Button
                 type="button"
@@ -461,6 +586,16 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
             <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
             <p>Memuat katalog kue &amp; data live dari server...</p>
           </div>
+        ) : page === 'catalog' && routeProduct ? (
+          <ProductDetailPage
+            product={routeProduct}
+            onBack={closeProductDetailPage}
+            areas={areas}
+            gallery={gallery}
+            reviews={reviews}
+            store={store}
+            onLeadLogged={loadAllData}
+          />
         ) : page === 'catalog' ? (
           <>
             {/* Hero Banner */}
@@ -598,7 +733,7 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
                           <ProductCardMedia
                             product={p}
                             categoryName={catName}
-                            imageUrl={getPrimaryImageUrl(p.kode_produk)}
+                            imageUrl={getPrimaryImageUrl(p)}
                           />
                           <CardHeader className="pb-2 pt-3">
                             <CardTitle className="text-base flex items-center justify-between gap-2">
@@ -627,7 +762,7 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
                               <Button
                                 type="button"
                                 size="sm"
-                                onClick={() => setActiveProduct(p)}
+                                onClick={() => openProductDetailPage(p)}
                                 className="w-full h-8 text-xs gap-1.5 mt-1"
                               >
                                 <MessageCircle className="h-3.5 w-3.5" /> Lihat Detail &amp; Pesan
@@ -639,34 +774,81 @@ export function App({ initialPage, onNavigate }: CakeAppProps = {}) {
                     })}
                   </div>
 
-                  {catalogTotalPages > 1 && (
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2">
-                      <span>Menampilkan {catalogProducts.length} dari {catalogTotal} produk</span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={catalogPage <= 1}
-                          onClick={() => setCatalogPage((p) => Math.max(1, p - 1))}
-                          className="h-7 px-2 text-xs"
-                        >
-                          Sebelumnya
-                        </Button>
-                        <span className="font-semibold text-foreground">{catalogPage} / {catalogTotalPages}</span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={catalogPage >= catalogTotalPages}
-                          onClick={() => setCatalogPage((p) => Math.min(catalogTotalPages, p + 1))}
-                          className="h-7 px-2 text-xs"
-                        >
-                          Berikutnya
-                        </Button>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-muted-foreground pt-3 border-t border-border/50">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span>
+                        Menampilkan <strong className="text-foreground">{catalogProducts.length}</strong> dari{' '}
+                        <strong className="text-foreground">{catalogTotal}</strong> produk
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span>Tampilkan:</span>
+                        <div className="w-24">
+                          <SelectField
+                            size="sm"
+                            value={String(catalogLimit)}
+                            onChange={(v) => {
+                              setCatalogLimit(Number(v) || 10);
+                              setCatalogPage(1);
+                            }}
+                            options={[
+                              { value: '10', label: '10 / hal' },
+                              { value: '20', label: '20 / hal' },
+                              { value: '50', label: '50 / hal' },
+                            ]}
+                          />
+                        </div>
                       </div>
                     </div>
-                  )}
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={catalogPage <= 1 || isCatalogLoading}
+                        onClick={() => setCatalogPage((p) => Math.max(1, p - 1))}
+                        className="h-7 px-2.5 text-xs"
+                      >
+                        Prev
+                      </Button>
+                      {Array.from({ length: Math.max(1, catalogTotalPages) }, (_, idx) => idx + 1)
+                        .filter(
+                          (p) =>
+                            p === 1 ||
+                            p === catalogTotalPages ||
+                            Math.abs(p - catalogPage) <= 1
+                        )
+                        .map((p, idx, arr) => {
+                          const prevPage = arr[idx - 1];
+                          const showEllipsis = prevPage !== undefined && p - prevPage > 1;
+                          return (
+                            <span key={p} className="inline-flex items-center gap-1">
+                              {showEllipsis && <span className="px-1">…</span>}
+                              <Button
+                                type="button"
+                                variant={p === catalogPage ? 'default' : 'outline'}
+                                size="sm"
+                                disabled={isCatalogLoading}
+                                onClick={() => setCatalogPage(p)}
+                                className="h-7 min-w-7 px-2 text-xs font-mono"
+                              >
+                                {p}
+                              </Button>
+                            </span>
+                          );
+                        })}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={catalogPage >= catalogTotalPages || isCatalogLoading}
+                        onClick={() => setCatalogPage((p) => Math.min(catalogTotalPages, p + 1))}
+                        className="h-7 px-2.5 text-xs"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
                 </>
               )}
             </section>

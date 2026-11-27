@@ -142,7 +142,7 @@ export interface FormConditionalRule {
 export interface RepeaterColumnDef {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'currency' | 'select';
+  type: 'text' | 'number' | 'currency' | 'select' | 'file';
   placeholder?: string;
   options?: string[];
 }

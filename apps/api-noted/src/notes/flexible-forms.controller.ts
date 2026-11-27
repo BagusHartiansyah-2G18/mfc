@@ -26,7 +26,8 @@ import {
   QueryDatasetDto,
   CreateFormApiKeyDto,
 } from './dto/flexible-form.dto';
-import { JwtAuthGuard, RequestWithUser } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard, RequestWithUser, extractUserFromAuthHeader, verifyApiKeyForRequest } from '../auth/jwt-auth.guard';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('notes/forms')
 export class FormsCatalogController {
@@ -232,38 +233,52 @@ export class FlexibleFormsController {
 // -------------------------------------------------------------
 @Controller('public/forms')
 export class PublicFormsController {
-  constructor(private readonly formsService: FlexibleFormsService) {}
+  constructor(
+    private readonly formsService: FlexibleFormsService,
+    private readonly prisma: PrismaService
+  ) {}
+
+  private async resolveOptionalUser(req: RequestWithUser) {
+    const apiKeyUser = await verifyApiKeyForRequest(req, this.prisma);
+    if (apiKeyUser) return apiKeyUser;
+    return extractUserFromAuthHeader(req.headers['authorization']);
+  }
 
   @Get(':shareSlug')
-  async getPublicForm(@Param('shareSlug') shareSlug: string) {
-    return await this.formsService.getPublicFormBySlug(shareSlug);
+  async getPublicForm(@Param('shareSlug') shareSlug: string, @Req() req: RequestWithUser) {
+    const requester = await this.resolveOptionalUser(req);
+    return await this.formsService.getPublicFormBySlug(shareSlug, requester);
   }
 
   @Get(':shareSlug/data')
   async getPublicFormData(
     @Param('shareSlug') shareSlug: string,
-    @Query() query: QueryFormDataDto
+    @Query() query: QueryFormDataDto,
+    @Req() req: RequestWithUser
   ) {
-    return await this.formsService.getPublicFormDataBySlug(shareSlug, query);
+    const requester = await this.resolveOptionalUser(req);
+    return await this.formsService.getPublicFormDataBySlug(shareSlug, query, requester);
   }
 
   @Post(':shareSlug/upload')
   async uploadPublicFormFile(
     @Param('shareSlug') shareSlug: string,
     @Body() dto: UploadFormFileDto,
-    @Req() req: any
+    @Req() req: RequestWithUser
   ) {
+    const requester = await this.resolveOptionalUser(req);
     const origin = `${req.protocol}://${req.get('host')}`;
-    return await this.formsService.savePublicFormFile(shareSlug, dto, origin);
+    return await this.formsService.savePublicFormFile(shareSlug, dto, origin, requester);
   }
 
   @Post(':shareSlug/values')
   async submitPublicForm(
     @Param('shareSlug') shareSlug: string,
     @Body() dto: SubmitFormValueDto,
-    @Req() req: any
+    @Req() req: RequestWithUser
   ) {
+    const requester = await this.resolveOptionalUser(req);
     const originHost = req.headers['host'] || 'public-portal';
-    return await this.formsService.submitPublicFormBySlug(shareSlug, dto, originHost);
+    return await this.formsService.submitPublicFormBySlug(shareSlug, dto, originHost, requester);
   }
 }

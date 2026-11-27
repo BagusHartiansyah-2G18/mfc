@@ -967,11 +967,15 @@ export function StandaloneQuestionnairePage({
                     {/* 12. REPEATER / TABULAR SUB-FORM */}
                     {field.type === 'repeater' && (
                       <RepeaterTableField
-                        columns={field.columns || []}
+                        columns={field.repeaterColumns || field.columns}
                         value={Array.isArray(val) ? val : []}
                         onChange={(rows) => handleAnswerChange(fieldKey, rows)}
                         label={field.label}
                         helperText={field.description}
+                        uploadEndpoint={`${apiBaseUrl}/public/forms/${encodeURIComponent(
+                          activeSlug
+                        )}/upload`}
+                        skipAuth
                       />
                     )}
 

@@ -6,8 +6,25 @@ export const API_NOTED_BASE =
 export const PORTAL_BASE_URL =
   (import.meta as any).env?.VITE_PORTAL_URL || 'http://localhost:4200';
 
-// Opsional: jika host ingin menyertakan X-API-Key izin aplikasi dari env (tidak hardcode di source)
+// Opsional: jika host ingin menyertakan X-API-Key izin aplikasi dari env / storage
 const ENV_CAKE_API_KEY = (import.meta as any).env?.VITE_CAKE_API_KEY || '';
+
+function resolveCakeApiKey(formId?: string): string {
+  try {
+    const rawMap = localStorage.getItem('cake_api_keys');
+    if (rawMap && formId) {
+      const parsed = JSON.parse(rawMap);
+      if (parsed && typeof parsed[formId] === 'string' && parsed[formId].trim()) {
+        return parsed[formId].trim();
+      }
+    }
+    const single = localStorage.getItem('cake_api_key');
+    if (single && single.trim()) return single.trim();
+  } catch {
+    // ignore storage errors
+  }
+  return ENV_CAKE_API_KEY;
+}
 
 export const CAKE_FORMS = {
   store: {
@@ -116,7 +133,11 @@ export async function fetchPublicFormPage<T = Record<string, any>>(
   }
 
   const url = `${API_NOTED_BASE}/public/forms/${encodeURIComponent(cfg.shareSlug)}/data?${params.toString()}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const apiKey = resolveCakeApiKey(cfg.formId);
+  if (apiKey) headers['X-API-Key'] = apiKey;
+
+  const res = await authFetch(url, { headers });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.success) {
     throw new Error(json?.message || `Gagal memuat data ${key}`);
@@ -144,7 +165,8 @@ export async function fetchAuthenticatedFormRows<T = Record<string, any>>(
   const cfg = CAKE_FORMS[key];
   const url = `${API_NOTED_BASE}/notes/${encodeURIComponent(cfg.kdNote)}/forms/${encodeURIComponent(cfg.formId)}/data?limit=100`;
   const headers: Record<string, string> = {};
-  if (ENV_CAKE_API_KEY) headers['X-API-Key'] = ENV_CAKE_API_KEY;
+  const apiKey = resolveCakeApiKey(cfg.formId);
+  if (apiKey) headers['X-API-Key'] = apiKey;
 
   const res = await authFetch(url, { headers });
   const json = await res.json().catch(() => ({}));
@@ -165,9 +187,16 @@ export async function submitPublicCakeForm(
     throw new Error(`Formulir ${key} tidak bersifat publik.`);
   }
   const url = `${API_NOTED_BASE}/public/forms/${encodeURIComponent(cfg.shareSlug)}/values`;
-  const res = await fetch(url, {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  const apiKey = resolveCakeApiKey(cfg.formId);
+  if (apiKey) headers['X-API-Key'] = apiKey;
+
+  const res = await authFetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers,
     body: JSON.stringify({
       answers,
       responderName,
@@ -191,7 +220,8 @@ export async function submitAuthenticatedCakeForm(
   const cfg = CAKE_FORMS[key];
   const url = `${API_NOTED_BASE}/notes/${encodeURIComponent(cfg.kdNote)}/forms/${encodeURIComponent(cfg.formId)}/values`;
   const headers: Record<string, string> = {};
-  if (ENV_CAKE_API_KEY) headers['X-API-Key'] = ENV_CAKE_API_KEY;
+  const apiKey = resolveCakeApiKey(cfg.formId);
+  if (apiKey) headers['X-API-Key'] = apiKey;
 
   const res = await authFetch(url, {
     method: 'POST',

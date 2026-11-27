@@ -52,10 +52,40 @@ export function ProductDetailDialog({
 
   if (!product) return null;
 
-  const productGallery = gallery.filter((g) => {
-    const code = typeof g.produk === 'object' ? g.produk?.kode_produk : g.produk;
-    return code === product.kode_produk;
-  });
+  const resolvePhotoUrl = (item?: { image_file?: any; image_url?: string } | null) => {
+    if (!item) return '';
+    const fileUrl =
+      typeof item.image_file === 'string'
+        ? item.image_file
+        : item.image_file?.fileUrl || item.image_file?.url || '';
+    const raw = (fileUrl || item.image_url || '').trim();
+    if (!raw) return '';
+    return raw.startsWith('/api/') || raw.startsWith('/uploads/')
+      ? `http://localhost:3002${raw}`
+      : raw;
+  };
+
+  const inlinePhotos = (Array.isArray(product.galeri_foto) ? product.galeri_foto : [])
+    .map((g) => ({
+      jenis_foto: g.jenis_foto || 'Full Product',
+      image_url: resolvePhotoUrl(g),
+    }))
+    .filter((g) => Boolean(g.image_url));
+
+  const legacyPhotos = gallery
+    .filter((g) => {
+      const code = typeof g.produk === 'object' ? g.produk?.kode_produk : g.produk;
+      return code === product.kode_produk;
+    })
+    .map((g) => ({
+      jenis_foto: g.jenis_foto || 'Full Product',
+      image_url: resolvePhotoUrl(g),
+    }))
+    .filter((g) => Boolean(g.image_url));
+
+  const productGallery = [...inlinePhotos, ...legacyPhotos].filter(
+    (item, idx, arr) => arr.findIndex((x) => x.image_url === item.image_url) === idx
+  );
   const activePhoto = productGallery[activePhotoIdx] || null;
 
   const activeVariant = variants[selectedVariantIdx] || { nama_varian: 'Standard', harga: 0 };
@@ -154,6 +184,7 @@ export function ProductDetailDialog({
                 <img
                   src={activePhoto.image_url}
                   alt={product.nama_produk}
+                  referrerPolicy="no-referrer"
                   onError={() => setImgFailed(true)}
                   className="w-full h-full object-cover"
                 />

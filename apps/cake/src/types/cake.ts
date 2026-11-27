@@ -53,6 +53,12 @@ export interface CakeVariant {
   harga: number;
 }
 
+export interface CakeProductPhoto {
+  jenis_foto?: string;
+  image_file?: { fileUrl?: string; url?: string; fileName?: string } | string | null;
+  image_url?: string;
+}
+
 export interface CakeProduct {
   id?: string;
   kode_produk: string;
@@ -63,6 +69,7 @@ export interface CakeProduct {
   preparation_time: string;
   featured: string;
   varian: CakeVariant[];
+  galeri_foto?: CakeProductPhoto[];
   deskripsi: string;
 }
 

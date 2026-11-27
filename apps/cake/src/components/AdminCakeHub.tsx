@@ -8,7 +8,6 @@ import {
   ExternalLink,
   FolderKanban,
   HelpCircle,
-  Image as ImageIcon,
   Layers,
   Lock,
   Percent,
@@ -29,22 +28,59 @@ interface AdminCakeHubProps {
   onNavigate?: (path: string) => void;
 }
 
-const ADMIN_MODULES: Array<{
+interface AdminModuleItem {
   key: CakeFormKey;
+  step: number;
   desc: string;
   icon: React.ElementType;
-}> = [
-  { key: 'products', desc: 'Kelola daftar kue, harga varian ukuran, dan status Ready/Pre-Order.', icon: Cake },
-  { key: 'categories', desc: 'Kelola 10 kategori kue (Brownies, Birthday Cake, Wedding, dll).', icon: Layers },
-  { key: 'gallery', desc: 'Upload foto produk (Full Product, Packaging, Slice View).', icon: ImageIcon },
-  { key: 'areas', desc: 'Atur zona pengantaran, tarif ongkir, dan opsi pickup toko.', icon: Truck },
-  { key: 'store', desc: 'Identitas usaha, motto, jam buka, WhatsApp, sosmed, dan visi/misi.', icon: Settings },
-  { key: 'rules', desc: 'Atur batas H-N PO, kuota harian, cut-off, DP%, dan harga add-on.', icon: Sliders },
-  { key: 'customCake', desc: 'Lihat & proses permintaan pesanan kue custom dari pelanggan.', icon: FolderKanban },
-  { key: 'promos', desc: 'Atur banner promo diskon persentase atau gratis ongkir.', icon: Percent },
-  { key: 'reviews', desc: 'Moderasi ulasan pelanggan (Approve / Reject) sebelum tampil.', icon: Star },
-  { key: 'faqs', desc: 'Kelola pertanyaan umum (FAQ) dan informasi kebijakan toko.', icon: HelpCircle },
-  { key: 'leads', desc: 'Pantau seluruh klik CTA WhatsApp dan konversi order nyata.', icon: BarChart3 },
+}
+
+interface AdminModuleGroup {
+  id: string;
+  title: string;
+  subtitle: string;
+  items: AdminModuleItem[];
+}
+
+const ADMIN_MODULE_GROUPS: AdminModuleGroup[] = [
+  {
+    id: 'setup',
+    title: '1. Pengaturan Toko & Aturan Operasional',
+    subtitle: 'Siapkan identitas toko, aturan Pre-Order/kuota, dan zona pengantaran.',
+    items: [
+      { key: 'store', step: 1, desc: 'Identitas usaha, motto, jam buka, WhatsApp, sosmed, dan visi/misi.', icon: Settings },
+      { key: 'rules', step: 2, desc: 'Atur batas H-N PO, kuota harian, cut-off, DP%, dan harga add-on.', icon: Sliders },
+      { key: 'areas', step: 3, desc: 'Atur zona pengantaran, tarif ongkir, dan opsi pickup toko.', icon: Truck },
+    ],
+  },
+  {
+    id: 'catalog',
+    title: '2. Master Katalog Produk',
+    subtitle: 'Kelola kategori kue terlebih dahulu, lalu lengkapi daftar produk, varian, dan foto.',
+    items: [
+      { key: 'categories', step: 4, desc: 'Kelola kategori kue (Brownies, Birthday Cake, Wedding, dll).', icon: Layers },
+      { key: 'products', step: 5, desc: 'Kelola daftar kue, harga varian ukuran, galeri foto produk, dan status Ready/Pre-Order.', icon: Cake },
+    ],
+  },
+  {
+    id: 'engagement',
+    title: '3. Promosi & Edukasi Pelanggan',
+    subtitle: 'Atur promo aktif, FAQ kebijakan order, dan moderasi ulasan pelanggan.',
+    items: [
+      { key: 'promos', step: 6, desc: 'Atur banner promo diskon persentase atau gratis ongkir.', icon: Percent },
+      { key: 'faqs', step: 7, desc: 'Kelola pertanyaan umum (FAQ) dan informasi kebijakan toko.', icon: HelpCircle },
+      { key: 'reviews', step: 8, desc: 'Moderasi ulasan pelanggan (Approve / Reject) sebelum tampil.', icon: Star },
+    ],
+  },
+  {
+    id: 'transactions',
+    title: '4. Pesanan Masuk & Konversi Penjualan',
+    subtitle: 'Pantau pesanan custom cake yang masuk dan tindak lanjuti lead WhatsApp hingga deal.',
+    items: [
+      { key: 'customCake', step: 9, desc: 'Lihat & proses permintaan pesanan kue custom dari pelanggan.', icon: FolderKanban },
+      { key: 'leads', step: 10, desc: 'Pantau seluruh klik CTA WhatsApp dan konversi order nyata.', icon: BarChart3 },
+    ],
+  },
 ];
 
 export function AdminCakeHub({
@@ -137,50 +173,63 @@ export function AdminCakeHub({
         ))}
       </div>
 
-      {/* Redirect Modules Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {ADMIN_MODULES.map(({ key, desc, icon: Icon }) => {
-          const cfg = CAKE_FORMS[key];
-          return (
-            <Card key={key} className="flex flex-col justify-between hover:border-primary/40 transition-colors">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-primary shrink-0" />
-                    {cfg.title}
-                  </span>
-                  {key === 'reviews' && pendingReviewsCount > 0 && (
-                    <Badge className="bg-amber-500/15 text-amber-700 border-amber-500/30 text-[10px]">
-                      {pendingReviewsCount} pending
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs flex-1 flex flex-col justify-between">
-                <p className="text-muted-foreground leading-relaxed">{desc}</p>
-                <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => openPortalPath(getNotedFormUrl(key, 'rekap'))}
-                    className="flex-1 h-7 text-[11px] gap-1"
-                  >
-                    Kelola di Noted <ArrowUpRight className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openPortalPath(getNotedFormUrl(key, 'isi'))}
-                    className="h-7 text-[11px]"
-                  >
-                    + Entri
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Grouped Modules by Main Workflow */}
+      <div className="space-y-6">
+        {ADMIN_MODULE_GROUPS.map((group) => (
+          <section key={group.id} className="space-y-3">
+            <div className="border-b border-border/60 pb-1.5">
+              <h3 className="text-sm font-bold text-foreground">{group.title}</h3>
+              <p className="text-[11px] text-muted-foreground">{group.subtitle}</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {group.items.map(({ key, step, desc, icon: Icon }) => {
+                const cfg = CAKE_FORMS[key];
+                return (
+                  <Card key={key} className="flex flex-col justify-between hover:border-primary/40 transition-colors">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+                            {step}
+                          </span>
+                          <Icon className="h-4 w-4 text-primary shrink-0" />
+                          <span className="truncate">{cfg.title}</span>
+                        </span>
+                        {key === 'reviews' && pendingReviewsCount > 0 && (
+                          <Badge className="bg-amber-500/15 text-amber-700 border-amber-500/30 text-[10px] shrink-0">
+                            {pendingReviewsCount} pending
+                          </Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-xs flex-1 flex flex-col justify-between">
+                      <p className="text-muted-foreground leading-relaxed">{desc}</p>
+                      <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => openPortalPath(getNotedFormUrl(key, 'rekap'))}
+                          className="flex-1 h-7 text-[11px] gap-1"
+                        >
+                          Kelola di Noted <ArrowUpRight className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openPortalPath(getNotedFormUrl(key, 'isi'))}
+                          className="h-7 text-[11px]"
+                        >
+                          + Entri
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

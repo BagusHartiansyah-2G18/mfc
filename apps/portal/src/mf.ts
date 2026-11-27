@@ -61,6 +61,7 @@ const LOCAL_FALLBACKS: Record<string, () => Promise<any>> = {
     import('../../compUI/src/components/noted/forms/NoteFormResponsesPage'),
   NotedDocumentsPage: () => import('../../compUI/src/components/noted/NoteDocumentsPage'),
   CakeApp: () => import('../../cake/src/app/app'),
+  ProfileApp: () => import('../../profile/src/app/app'),
   App: () => import('../../compUI/src/App'),
 };
 
@@ -83,7 +84,9 @@ export function lazyProvider<Props extends object = Record<string, unknown>>(
     }
 
     const localLoader =
-      alias === 'compUI' || alias === 'cake' ? LOCAL_FALLBACKS[exposeName] : undefined;
+      alias === 'compUI' || alias === 'cake' || alias === 'profile'
+        ? LOCAL_FALLBACKS[exposeName]
+        : undefined;
     if (localLoader) {
       try {
         const localMod = await localLoader();

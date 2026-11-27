@@ -555,9 +555,15 @@ export function NoteDynamicFormRenderer({
                   label={field.label}
                   helperText={field.helperText}
                   required={field.required}
-                  columns={field.repeaterColumns}
+                  columns={field.repeaterColumns || field.columns}
                   value={answers[field.key]}
                   onChange={(rows) => handleFieldChange(field.key, rows)}
+                  uploadEndpoint={
+                    !isEditMode && isPublicMode && form.shareSlug
+                      ? `${apiBaseUrl}/public/forms/${form.shareSlug}/upload`
+                      : `${apiBaseUrl}/notes/${encodeURIComponent(kdJudul)}/forms/${encodeURIComponent(form.id)}/upload`
+                  }
+                  skipAuth={Boolean(!isEditMode && isPublicMode && form.shareSlug)}
                 />
               ) : field.type === 'rating' ? (
                 /* 4. Tipe Star Rating (1-5 Bintang) */

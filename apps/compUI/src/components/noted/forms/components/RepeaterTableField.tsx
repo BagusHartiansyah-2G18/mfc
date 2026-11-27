@@ -1,6 +1,7 @@
 import { Button, Input } from '@org/ui';
 import { Plus, Trash2, ListPlus } from 'lucide-react';
 import { type RepeaterColumnDef } from '../../types';
+import { FormFileUploadField } from './FormFileUploadField';
 
 interface RepeaterTableFieldProps {
   label: string;
@@ -9,6 +10,8 @@ interface RepeaterTableFieldProps {
   columns?: RepeaterColumnDef[];
   value?: Array<Record<string, any>>;
   onChange: (rows: Array<Record<string, any>>) => void;
+  uploadEndpoint?: string;
+  skipAuth?: boolean;
 }
 
 export function RepeaterTableField({
@@ -23,6 +26,8 @@ export function RepeaterTableField({
   ],
   value = [],
   onChange,
+  uploadEndpoint,
+  skipAuth = false,
 }: RepeaterTableFieldProps) {
   const rows = Array.isArray(value) && value.length > 0 ? value : [{}];
 
@@ -134,6 +139,26 @@ export function RepeaterTableField({
                             </option>
                           ))}
                         </select>
+                      ) : col.type === 'file' ? (
+                        uploadEndpoint ? (
+                          <div className="min-w-[210px]">
+                            <FormFileUploadField
+                              label=""
+                              value={row[col.key]}
+                              onChange={(val) => handleCellChange(rIdx, col.key, val)}
+                              uploadEndpoint={uploadEndpoint}
+                              skipAuth={skipAuth}
+                            />
+                          </div>
+                        ) : (
+                          <Input
+                            type="text"
+                            value={typeof row[col.key] === 'string' ? row[col.key] : row[col.key]?.fileUrl || ''}
+                            onChange={(e) => handleCellChange(rIdx, col.key, e.target.value)}
+                            placeholder={col.placeholder || 'https://...'}
+                            className="h-8 text-xs bg-background"
+                          />
+                        )
                       ) : (
                         <Input
                           type={col.type === 'number' ? 'number' : 'text'}
